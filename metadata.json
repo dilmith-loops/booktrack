@@ -1,0 +1,6 @@
+{
+  "name": "BMICH Book Fair Community Spotter",
+  "description": "Live community book finder and stall chat for the Colombo International Book Fair 2026 at BMICH, proudly powered by Sampath Bank PLC with AI-powered moderation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

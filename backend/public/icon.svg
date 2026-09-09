@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="sampathGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF7A1A"/>
+      <stop offset="100%" stop-color="#EA580C"/>
+    </linearGradient>
+    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Outer Rounded Container -->
+  <rect width="512" height="512" rx="112" fill="url(#sampathGrad)"/>
+  
+  <!-- Subtle inner glowing ring -->
+  <rect x="24" y="24" width="464" height="464" rx="92" fill="none" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="4"/>
+  
+  <!-- Book Spine and Pages in White and Black -->
+  <g filter="url(#dropShadow)" transform="translate(106, 120)">
+    <!-- Book back shadow -->
+    <path d="M150 20 C180 5, 270 5, 290 20 L290 220 C270 205, 180 205, 150 220 C120 205, 30 205, 10 220 L10 20 C30 5, 120 5, 150 20 Z" fill="#000000" opacity="0.15" transform="translate(0, 8)"/>
+    
+    <!-- Left open page -->
+    <path d="M150 15 C115 2, 40 2, 12 18 C6 20, 0 26, 0 34 L0 216 C0 225, 8 232, 16 230 C45 218, 115 216, 150 230 Z" fill="#FFFFFF"/>
+    
+    <!-- Right open page -->
+    <path d="M150 15 C185 2, 260 2, 288 18 C294 20, 300 26, 300 34 L300 216 C300 225, 292 232, 284 230 C255 218, 185 216, 150 230 Z" fill="#FFFFFF"/>
+    
+    <!-- Book Center Fold Line -->
+    <line x1="150" y1="15" x2="150" y2="230" stroke="#EA580C" stroke-width="4" stroke-linecap="round"/>
+    
+    <!-- Left page text lines -->
+    <line x1="36" y1="65" x2="124" y2="65" stroke="#18181B" stroke-width="6" stroke-linecap="round"/>
+    <line x1="36" y1="95" x2="124" y2="95" stroke="#18181B" stroke-width="6" stroke-linecap="round"/>
+    <line x1="36" y1="125" x2="105" y2="125" stroke="#18181B" stroke-width="6" stroke-linecap="round"/>
+    <line x1="36" y1="155" x2="118" y2="155" stroke="#18181B" stroke-width="6" stroke-linecap="round"/>
+    
+    <!-- Right page: Pin & Radar Spot icon -->
+    <!-- Location Pin -->
+    <path d="M225 60 C205 60, 190 75, 190 95 C190 125, 225 155, 225 155 C225 155, 260 125, 260 95 C260 75, 245 60, 225 60 Z" fill="#EA580C"/>
+    <circle cx="225" cy="93" r="11" fill="#FFFFFF"/>
+    
+    <line x1="176" y1="175" x2="264" y2="175" stroke="#18181B" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Sampath Bank Star Badge -->
+  <circle cx="410" cy="100" r="32" fill="#000000"/>
+  <circle cx="410" cy="100" r="28" fill="#F37021"/>
+  <path d="M410 82 L414 94 L426 94 L416 102 L420 114 L410 106 L400 114 L404 102 L394 94 L406 94 Z" fill="#FFFFFF"/>
+</svg>

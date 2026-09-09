@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+backend/vendor/
+
+# Builds and compiled assets
+dist/
+build/
+coverage/
+.vite/
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+*.code-workspace
+.idea/
+.vscode/
+
+# Environment and secrets (CRITICAL: Do not commit keys or secrets)
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Sensitive database dumps with user personal information
+*sampath_booktrack_dump.sql
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
