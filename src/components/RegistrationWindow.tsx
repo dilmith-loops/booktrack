@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { apiFetch } from '../utils/api';
+import { TermsBottomSheet } from './TermsBottomSheet';
 
 interface RegistrationWindowProps {
   isOpen: boolean;
@@ -90,6 +91,8 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [editSuccessMsg, setEditSuccessMsg] = useState<string | null>(null);
   const [editErrorMsg, setEditErrorMsg] = useState<string | null>(null);
+  const [showTermsSheet, setShowTermsSheet] = useState(false);
+  const [termsInitialTab, setTermsInitialTab] = useState<'terms' | 'privacy'>('terms');
 
   // Sync edit states when currentProfile changes or window opens
   React.useEffect(() => {
@@ -470,7 +473,8 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-300">
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-300">
       <div className="relative w-full max-w-md bg-white rounded-3xl border border-zinc-200 shadow-2xl overflow-hidden my-auto">
         {/* Top Header Banner */}
         <div className="bg-gradient-to-r from-[#F37021] via-[#EA580C] to-[#C2410C] p-5 text-white relative overflow-hidden">
@@ -698,8 +702,21 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
               </button>
             </form>
 
-            {/* Feature Tour & Sign Out */}
+            {/* Feature Tour, Terms & Sign Out */}
             <div className="pt-2 border-t border-zinc-100 space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setTermsInitialTab('terms');
+                  setShowTermsSheet(true);
+                }}
+                id="profile-terms-btn"
+                className="w-full py-2 px-3 bg-zinc-50 hover:bg-orange-50 hover:text-[#EA580C] text-zinc-700 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer border border-zinc-200/80"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-[#F37021]" />
+                <span>Terms of Use & Privacy Policy</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -1076,6 +1093,31 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
               )}
             </button>
 
+            <div className="text-center text-[11px] text-zinc-500 pt-0.5">
+              By joining, you agree to our{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setTermsInitialTab('terms');
+                  setShowTermsSheet(true);
+                }}
+                className="text-[#EA580C] hover:underline font-semibold cursor-pointer"
+              >
+                Terms of Use
+              </button>{' '}
+              &{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setTermsInitialTab('privacy');
+                  setShowTermsSheet(true);
+                }}
+                className="text-[#EA580C] hover:underline font-semibold cursor-pointer"
+              >
+                Privacy Policy
+              </button>
+            </div>
+
             <div className="text-center text-xs text-zinc-500 font-medium">
               Already registered?{' '}
               <button
@@ -1201,7 +1243,15 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
         )}
       </>
     )}
+    </div>
   </div>
-</div>
+
+  {/* Terms of Use & Privacy Policy Bottom Sheet */}
+  <TermsBottomSheet
+    isOpen={showTermsSheet}
+    onClose={() => setShowTermsSheet(false)}
+    initialTab={termsInitialTab}
+  />
+</>
   );
 };

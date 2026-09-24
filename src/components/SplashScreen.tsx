@@ -5,8 +5,10 @@ import {
   ArrowRight,
   Wrench,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  ShieldCheck
 } from 'lucide-react';
+import { TermsBottomSheet } from './TermsBottomSheet';
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -26,6 +28,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   isCheckingStatus = false
 }) => {
   const [fadingOut, setFadingOut] = useState<boolean>(false);
+  const [showTerms, setShowTerms] = useState<boolean>(false);
+  const [termsInitialTab, setTermsInitialTab] = useState<'terms' | 'privacy'>('terms');
 
   const baseUrl = import.meta.env.BASE_URL;
   const bgImg = `${baseUrl}splash/splash-bg.jpg`;
@@ -159,7 +163,41 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             </button>
           )}
         </div>
+
+        {/* Below Section Card: Terms of Use & Privacy Policy (Visible on both Onboarding and Maintenance) */}
+        <div className="mt-3 sm:mt-3.5 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-white/85 drop-shadow-sm select-none">
+          <button
+            type="button"
+            onClick={() => {
+              setTermsInitialTab('terms');
+              setShowTerms(true);
+            }}
+            id="splash-terms-btn"
+            className="hover:text-white underline underline-offset-4 decoration-white/40 hover:decoration-white transition-all cursor-pointer py-1 px-1.5 rounded-lg hover:bg-white/10"
+          >
+            Terms of Use
+          </button>
+          <span className="text-white/40" aria-hidden="true">&bull;</span>
+          <button
+            type="button"
+            onClick={() => {
+              setTermsInitialTab('privacy');
+              setShowTerms(true);
+            }}
+            id="splash-privacy-btn"
+            className="hover:text-white underline underline-offset-4 decoration-white/40 hover:decoration-white transition-all cursor-pointer py-1 px-1.5 rounded-lg hover:bg-white/10"
+          >
+            Privacy Policy
+          </button>
+        </div>
       </div>
+
+      {/* Terms of Use & Privacy Policy Bottom Sheet */}
+      <TermsBottomSheet
+        isOpen={showTerms}
+        onClose={() => setShowTerms(false)}
+        initialTab={termsInitialTab}
+      />
     </div>
   );
 };
