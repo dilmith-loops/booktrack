@@ -341,6 +341,12 @@ async function startServer() {
       const toAdd = stalls.filter(s => !existingIds.has(s.id));
       stallsStore = [...stallsStore, ...toAdd];
     }
+    stallsStore.sort((a, b) =>
+      (a.stallNumber || '').localeCompare(b.stallNumber || '', undefined, {
+        numeric: true,
+        sensitivity: 'base'
+      })
+    );
     res.json({
       success: true,
       count: stallsStore.length,

@@ -15,7 +15,10 @@ class StallController extends Controller
      */
     public function index(): JsonResponse
     {
-        $stalls = Stall::orderBy('hall')->orderBy('stall_number')->get();
+        $stalls = Stall::all()
+            ->sortBy('stall_number', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
         return response()->json([
             'stalls' => $stalls
         ]);
@@ -212,7 +215,9 @@ class StallController extends Controller
             }
         });
 
-        $allStalls = Stall::orderBy('hall')->orderBy('stall_number')->get();
+        $allStalls = Stall::all()
+            ->sortBy('stall_number', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
 
         return response()->json([
             'success' => true,

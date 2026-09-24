@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
 import { CommunityFeed } from './components/CommunityFeed';
 import { QuickBookLookup } from './components/QuickBookLookup';
@@ -645,18 +645,67 @@ export default function App() {
   // Visible stalls for public visitors (hidden stalls excluded)
   const visibleStalls = stalls.filter((s) => !s.isHidden);
 
-  // Filtered stalls for Stalls tab
-  const filteredStalls = visibleStalls.filter((s) => {
-    const matchesHall =
-      stallHallFilter === 'All' ||
-      s.hall.toLowerCase().includes(stallHallFilter.toLowerCase());
-    const matchesSearch =
-      !stallSearch ||
-      s.name.toLowerCase().includes(stallSearch.toLowerCase()) ||
-      s.category.toLowerCase().includes(stallSearch.toLowerCase()) ||
-      s.stallNumber.toLowerCase().includes(stallSearch.toLowerCase());
-    return matchesHall && matchesSearch;
-  });
+  // Available halls/sections sorted by Stall Number letter (letters A, B, C, D, H, J, K, etc.)
+  const availableHalls = useMemo(() => {
+    const map = new Map<string, { key: string; label: string }>();
+
+    visibleStalls.forEach((s) => {
+      const letter = (s.stallNumber || '').trim().charAt(0).toUpperCase();
+      if (letter && /^[A-Z]$/.test(letter) && !map.has(letter)) {
+        map.set(letter, {
+          key: letter,
+          label: s.hall || `Hall ${letter}`
+        });
+      }
+    });
+
+    if (map.size === 0) {
+      return [
+        { key: 'All', label: 'All' },
+        { key: 'A', label: 'Hall A' },
+        { key: 'B', label: 'Hall B' },
+        { key: 'C', label: 'Hall C' },
+        { key: 'D', label: 'Hall D' },
+        { key: 'H', label: 'Hall H' },
+        { key: 'J', label: 'Hall J' },
+        { key: 'K', label: 'Hall K' },
+        { key: 'L', label: 'Pavilion L' },
+        { key: 'M', label: 'Pavilion M' },
+        { key: 'P', label: 'Pavilion P' },
+        { key: 'Q', label: 'Pavilion Q' },
+        { key: 'R', label: 'Pavilion R' },
+        { key: 'S', label: 'Pavilion S' },
+        { key: 'T', label: 'Pavilion T' }
+      ];
+    }
+
+    const sortedLetters = Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key));
+    return [{ key: 'All', label: 'All' }, ...sortedLetters];
+  }, [visibleStalls]);
+
+  // Filtered stalls sorted naturally by Stall Number (letters A, K, etc.)
+  const filteredStalls = useMemo(() => {
+    return visibleStalls
+      .filter((s) => {
+        const letter = (s.stallNumber || '').trim().charAt(0).toUpperCase();
+        const matchesHall =
+          stallHallFilter === 'All' ||
+          letter === stallHallFilter ||
+          (s.hall && s.hall.toLowerCase().includes(stallHallFilter.toLowerCase()));
+        const matchesSearch =
+          !stallSearch ||
+          s.name.toLowerCase().includes(stallSearch.toLowerCase()) ||
+          (s.category && s.category.toLowerCase().includes(stallSearch.toLowerCase())) ||
+          (s.stallNumber && s.stallNumber.toLowerCase().includes(stallSearch.toLowerCase()));
+        return matchesHall && matchesSearch;
+      })
+      .sort((a, b) =>
+        (a.stallNumber || '').localeCompare(b.stallNumber || '', undefined, {
+          numeric: true,
+          sensitivity: 'base'
+        })
+      );
+  }, [visibleStalls, stallHallFilter, stallSearch]);
 
   const activeAnnouncement = announcements.find((a) => a.isActive);
 
@@ -856,19 +905,19 @@ export default function App() {
                   />
                 </div>
 
-                {/* Hall Chips */}
+                {/* Hall Chips sorted using Stall number (letters A, K, etc.) */}
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                  {['All', 'Hall A', 'Hall B', 'Hall C', 'Hall D', 'Hall E', 'Sirimavo Hall'].map((hall) => (
+                  {availableHalls.map((h) => (
                     <button
-                      key={hall}
-                      onClick={() => setStallHallFilter(hall)}
+                      key={h.key}
+                      onClick={() => setStallHallFilter(h.key)}
                       className={`px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap cursor-pointer transition-colors ${
-                        stallHallFilter === hall
+                        stallHallFilter === h.key
                           ? 'bg-zinc-900 text-white'
                           : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
                       }`}
                     >
-                      {hall}
+                      {h.label}
                     </button>
                   ))}
                 </div>
@@ -885,11 +934,9 @@ export default function App() {
                       <div className="font-extrabold text-xs text-zinc-900 truncate">
                         {stall.name}
                       </div>
-                      <div className="text-[11px] text-zinc-500 font-medium flex items-center gap-1 mt-0.5">
+                      <div className="text-[11px] text-zinc-600 font-medium flex items-center gap-1.5 mt-0.5">
                         <MapPin className="w-3 h-3 text-[#F37021] flex-shrink-0" />
-                        <span>{stall.hall}</span>
-                        <span>•</span>
-                        <span className="font-bold text-zinc-800">{stall.stallNumber}</span>
+                        <span className="font-bold text-zinc-900 font-mono">Stall {stall.stallNumber}</span>
                       </div>
                       <span className="inline-block mt-1 text-[10px] text-zinc-600 bg-zinc-100 px-1.5 py-0.2 rounded font-medium">
                         {stall.category}

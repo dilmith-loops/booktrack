@@ -266,7 +266,13 @@ export const parseStallsCsv = (csvText: string, options: ParseStallsOptions = {}
           specialDiscount: defaultDiscount || undefined,
           isHidden: false
         };
-      });
+      })
+      .sort((a, b) =>
+        a.stallNumber.localeCompare(b.stallNumber, undefined, {
+          numeric: true,
+          sensitivity: 'base'
+        })
+      );
   }
 
   // Mode A: Smart Grouping by (Exhibitor, Hall)
@@ -310,5 +316,10 @@ export const parseStallsCsv = (csvText: string, options: ParseStallsOptions = {}
     });
   }
 
-  return result;
+  return result.sort((a, b) =>
+    a.stallNumber.localeCompare(b.stallNumber, undefined, {
+      numeric: true,
+      sensitivity: 'base'
+    })
+  );
 };

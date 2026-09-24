@@ -20,17 +20,60 @@ export const StallDirectoryModal: React.FC<StallDirectoryModalProps> = ({
 
   if (!isOpen) return null;
 
-  const halls = ['All', 'Hall A', 'Hall B', 'Hall C', 'Hall D', 'Hall E', 'Sirimavo Hall'];
+  // Unique halls sorted using Stall number letter (A, B, C, D, H, J, K, etc.)
+  const availableHalls = React.useMemo(() => {
+    const map = new Map<string, { key: string; label: string }>();
+    stalls.forEach((s) => {
+      const letter = (s.stallNumber || '').trim().charAt(0).toUpperCase();
+      if (letter && /^[A-Z]$/.test(letter) && !map.has(letter)) {
+        map.set(letter, { key: letter, label: s.hall || `Hall ${letter}` });
+      }
+    });
 
-  const filtered = stalls.filter((s) => {
-    if (s.isHidden) return false;
-    const matchesHall = selectedHall === 'All' || s.hall.toLowerCase().includes(selectedHall.toLowerCase());
-    const matchesSearch =
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.category.toLowerCase().includes(search.toLowerCase()) ||
-      s.stallNumber.toLowerCase().includes(search.toLowerCase());
-    return matchesHall && matchesSearch;
-  });
+    if (map.size === 0) {
+      return [
+        { key: 'All', label: 'All' },
+        { key: 'A', label: 'Hall A' },
+        { key: 'B', label: 'Hall B' },
+        { key: 'C', label: 'Hall C' },
+        { key: 'D', label: 'Hall D' },
+        { key: 'H', label: 'Hall H' },
+        { key: 'J', label: 'Hall J' },
+        { key: 'K', label: 'Hall K' },
+        { key: 'L', label: 'Pavilion L' },
+        { key: 'M', label: 'Pavilion M' },
+        { key: 'P', label: 'Pavilion P' },
+        { key: 'Q', label: 'Pavilion Q' },
+        { key: 'R', label: 'Pavilion R' },
+        { key: 'S', label: 'Pavilion S' },
+        { key: 'T', label: 'Pavilion T' }
+      ];
+    }
+
+    const sorted = Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key));
+    return [{ key: 'All', label: 'All' }, ...sorted];
+  }, [stalls]);
+
+  const filtered = stalls
+    .filter((s) => {
+      if (s.isHidden) return false;
+      const letter = (s.stallNumber || '').trim().charAt(0).toUpperCase();
+      const matchesHall =
+        selectedHall === 'All' ||
+        letter === selectedHall ||
+        (s.hall && s.hall.toLowerCase().includes(selectedHall.toLowerCase()));
+      const matchesSearch =
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.category.toLowerCase().includes(search.toLowerCase()) ||
+        s.stallNumber.toLowerCase().includes(search.toLowerCase());
+      return matchesHall && matchesSearch;
+    })
+    .sort((a, b) =>
+      (a.stallNumber || '').localeCompare(b.stallNumber || '', undefined, {
+        numeric: true,
+        sensitivity: 'base'
+      })
+    );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-sm overflow-y-auto">
@@ -60,21 +103,21 @@ export const StallDirectoryModal: React.FC<StallDirectoryModalProps> = ({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search publisher or category (e.g. Sarasavi, Manga, Classics)..."
+              placeholder="Search publisher or stall number (e.g. Sarasavi, Manga, Classics)..."
               className="w-full pl-9 pr-3 py-2 bg-white border-2 border-black rounded-lg text-xs font-bold text-black focus:outline-none focus:ring-2 focus:ring-[#F37021]"
             />
           </div>
 
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {halls.map((hall) => (
+            {availableHalls.map((h) => (
               <button
-                key={hall}
-                onClick={() => setSelectedHall(hall)}
+                key={h.key}
+                onClick={() => setSelectedHall(h.key)}
                 className={`px-2.5 py-1 rounded-full text-[11px] font-bold border border-black cursor-pointer transition-colors ${
-                  selectedHall === hall ? 'bg-black text-[#F37021]' : 'bg-white text-black hover:bg-orange-100'
+                  selectedHall === h.key ? 'bg-black text-[#F37021]' : 'bg-white text-black hover:bg-orange-100'
                 }`}
               >
-                {hall}
+                {h.label}
               </button>
             ))}
           </div>
@@ -95,8 +138,8 @@ export const StallDirectoryModal: React.FC<StallDirectoryModalProps> = ({
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-black text-sm text-black">{stall.name}</span>
-                    <span className="bg-[#F37021] text-white text-[10px] font-extrabold px-2 py-0.5 rounded border border-black">
-                      {stall.hall} • {stall.stallNumber}
+                    <span className="bg-[#F37021] text-white text-[10px] font-extrabold px-2 py-0.5 rounded border border-black font-mono">
+                      Stall {stall.stallNumber}
                     </span>
                   </div>
                   <p className="text-xs text-zinc-600 font-medium mt-0.5">

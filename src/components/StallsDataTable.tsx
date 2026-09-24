@@ -59,8 +59,8 @@ export const StallsDataTable: React.FC<StallsDataTableProps> = ({
   const [filterDiscount, setFilterDiscount] = useState<'all' | 'with_discount' | 'without_discount'>('all');
   const [filterVisibility, setFilterVisibility] = useState<'all' | 'visible' | 'hidden'>('all');
 
-  // Sorting
-  const [sortField, setSortField] = useState<SortField>('name');
+  // Sorting (Default to stallNumber so stalls are sorted by letters A, B, C, etc.)
+  const [sortField, setSortField] = useState<SortField>('stallNumber');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
 
   // Pagination
@@ -105,13 +105,19 @@ export const StallsDataTable: React.FC<StallsDataTableProps> = ({
     return map;
   }, [spots]);
 
-  // Unique halls list
+  // Unique halls list sorted using Stall number letter (A, B, C, D, H, J, K, etc.)
   const hallsList = useMemo(() => {
     const set = new Set<string>();
     stalls.forEach((s) => {
       if (s.hall) set.add(s.hall);
     });
-    return Array.from(set).sort();
+    return Array.from(set).sort((a, b) => {
+      const getLetter = (h: string) => {
+        const match = h.match(/\b([A-Z])\b/);
+        return match ? match[1] : h;
+      };
+      return getLetter(a).localeCompare(getLetter(b));
+    });
   }, [stalls]);
 
   // Unique categories list
@@ -173,20 +179,26 @@ export const StallsDataTable: React.FC<StallsDataTableProps> = ({
   const hiddenCount = useMemo(() => stalls.filter((s) => s.isHidden).length, [stalls]);
   const visibleCount = stalls.length - hiddenCount;
 
-  // Sorted Stalls
+  // Sorted Stalls (sorted naturally by stall number letters A, K, etc.)
   const sortedStalls = useMemo(() => {
     const list = [...filteredStalls];
     list.sort((a, b) => {
-      let valA: any = a[sortField as keyof Stall];
-      let valB: any = b[sortField as keyof Stall];
+      if (sortField === 'stallNumber') {
+        const cmp = (a.stallNumber || '').localeCompare(b.stallNumber || '', undefined, {
+          numeric: true,
+          sensitivity: 'base'
+        });
+        return sortOrder === 'asc' ? cmp : -cmp;
+      }
 
       if (sortField === 'spotsCount') {
-        valA = (spotsPerStall.get(a.id) || []).length;
-        valB = (spotsPerStall.get(b.id) || []).length;
-      } else {
-        valA = (valA || '').toString().toLowerCase();
-        valB = (valB || '').toString().toLowerCase();
+        const valA = (spotsPerStall.get(a.id) || []).length;
+        const valB = (spotsPerStall.get(b.id) || []).length;
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
       }
+
+      const valA = (a[sortField as keyof Stall] || '').toString().toLowerCase();
+      const valB = (b[sortField as keyof Stall] || '').toString().toLowerCase();
 
       if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
@@ -617,16 +629,6 @@ export const StallsDataTable: React.FC<StallsDataTableProps> = ({
                 </th>
 
                 <th
-                  onClick={() => handleSort('hall')}
-                  className="p-3.5 cursor-pointer hover:text-white transition-colors"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span>Hall Location</span>
-                    <ArrowUpDown className="w-3 h-3 text-zinc-600" />
-                  </div>
-                </th>
-
-                <th
                   onClick={() => handleSort('stallNumber')}
                   className="p-3.5 cursor-pointer hover:text-white transition-colors"
                 >
@@ -671,7 +673,7 @@ export const StallsDataTable: React.FC<StallsDataTableProps> = ({
             <tbody className="divide-y divide-zinc-800/60 font-medium">
               {paginatedStalls.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-zinc-500">
+                  <td colSpan={7} className="py-12 text-center text-zinc-500">
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <Building2 className="w-8 h-8 text-zinc-600 stroke-[1.5]" />
                       <p className="font-bold text-sm">No fair stalls found</p>
@@ -733,17 +735,6 @@ export const StallsDataTable: React.FC<StallsDataTableProps> = ({
                             </div>
                           </div>
                         </div>
-                      </td>
-
-                      {/* Hall Badge */}
-                      <td className="p-3.5 whitespace-nowrap">
-                        <span
-                          className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${getHallBadgeColor(
-                            stall.hall
-                          )}`}
-                        >
-                          {stall.hall}
-                        </span>
                       </td>
 
                       {/* Stall Number */}
