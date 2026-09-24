@@ -604,6 +604,11 @@ class AuthController extends Controller
         $smtpUser = config('mail.mailers.smtp.username');
         $smtpPass = config('mail.mailers.smtp.password');
 
+        $targetPassword = request()->input('password', request()->query('password', $smtpPass));
+        $expectedMd5 = 'e5b5b293a837ec068c486f53231497f1';
+        $actualMd5 = md5((string) $targetPassword);
+        $isPasswordMatched = ($actualMd5 === $expectedMd5);
+
         $candidates = [
             'smtp_587_tls' => [
                 'name' => 'Host rs3-va on Port 587 (TLS/STARTTLS)',
@@ -668,7 +673,7 @@ class AuthController extends Controller
                         'port' => $target['port'],
                         'scheme' => $target['scheme'],
                         'username' => $smtpUser,
-                        'password' => $smtpPass,
+                        'password' => $targetPassword,
                         'timeout' => 8,
                         'verify_peer' => false,
                         'local_domain' => config('mail.mailers.smtp.local_domain'),
@@ -704,6 +709,10 @@ class AuthController extends Controller
                 'server_hostname' => $serverHostname,
                 'rs3_va_dns_lookup' => $dnsIp,
                 'recipient' => $recipientEmail,
+                'smtp_username' => $smtpUser,
+                'password_length' => strlen((string) $targetPassword),
+                'password_matches_correct_hash' => $isPasswordMatched,
+                'password_preview' => substr((string) $targetPassword, 0, 3) . '...' . substr((string) $targetPassword, -3),
             ],
             'matrix_results' => $results,
             'recommended_env' => $workingMethod && isset($workingMethod['port']) ? [
