@@ -394,6 +394,8 @@ async function startServer() {
       const { 
         postType = 'spot',
         bookName, 
+        author,
+        preferredLanguage,
         stallId, 
         stallName, 
         hall, 
@@ -403,6 +405,8 @@ async function startServer() {
         priceOrOffer, 
         shelfLocationNote,
         notes,
+        isResolved,
+        status,
         replyToRequestId,
         taggedRequesterName,
         taggedRequesterHandle
@@ -456,6 +460,8 @@ async function startServer() {
           id: `req-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
           postType: 'request',
           bookName: bookName.trim(),
+          author: author?.trim() || undefined,
+          preferredLanguage: preferredLanguage?.trim() || undefined,
           stallId: 'seeking',
           stallName: 'BMICH Fairgrounds',
           hall: 'Seeking in All Halls',
@@ -465,10 +471,10 @@ async function startServer() {
           finderHandle: finderName?.trim() ? (finderName.startsWith('@') ? finderName : `@${finderName.replace(/\s+/g, '_').toLowerCase()}`) : '@booklover',
           timestamp: Date.now(),
           notes: notes?.trim() || undefined,
-          status: 'Looking for Book',
+          status: (status as any) || (isResolved ? 'Found' : 'Looking for Book'),
           helpfulCount: 0,
           aiVerified: true,
-          isResolved: false
+          isResolved: Boolean(isResolved)
         };
 
         communitySpots.unshift(newRequest);

@@ -11,7 +11,8 @@ import {
   HelpCircle, 
   Award, 
   Archive, 
-  Trash2 
+  Trash2,
+  Info
 } from 'lucide-react';
 import { BookSpotting, Stall, UserProfile } from '../types';
 
@@ -251,9 +252,20 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
                     <div className="space-y-2">
                       {/* Main Exact Format Requested: "XX is looking for Harry Potter - order of the pheonix" */}
                       <div className="bg-amber-100/70 border border-amber-300 rounded-xl p-2.5">
-                        <div className="text-[10px] font-bold text-amber-900 flex items-center gap-1 mb-1">
-                          <span className="text-sm">🔍</span>
-                          <span className="uppercase tracking-wider font-black text-[9px]">BOOK INQUIRY</span>
+                        <div className="text-[10px] font-bold text-amber-900 flex items-center justify-between gap-1 mb-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm">🔍</span>
+                            <span className="uppercase tracking-wider font-black text-[9px]">BOOK INQUIRY</span>
+                          </div>
+                          {spot.status === 'Found' || spot.isResolved ? (
+                            <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                              ✓ FOUND
+                            </span>
+                          ) : (
+                            <span className="bg-amber-200/90 text-amber-900 text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                              SEEKING
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs sm:text-sm font-extrabold text-zinc-900 leading-snug">
                           <span className="text-[#075E54] font-black">{spot.finderName}</span> is looking for{' '}
@@ -262,13 +274,43 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
                           </span>
                         </div>
                         {spot.author && (
-                          <p className="text-[11px] text-zinc-600 font-medium mt-0.5">
-                            Author: {spot.author}
+                          <p className="text-[11px] text-zinc-700 font-semibold mt-0.5">
+                            Author: <span className="font-normal text-zinc-600">{spot.author}</span>
+                          </p>
+                        )}
+                        {spot.preferredLanguage && (
+                          <p className="text-[10px] text-zinc-600 font-semibold mt-0.5">
+                            Language: <span className="font-bold text-amber-950">{spot.preferredLanguage}</span>
                           </p>
                         )}
                         {spot.notes && (
                           <div className="text-[11px] text-zinc-700 italic bg-white/70 p-1.5 rounded-md mt-1.5 border border-amber-200/60">
                             "{spot.notes}"
+                          </div>
+                        )}
+
+                        {/* Request Reference Cover Photos */}
+                        {spot.images && spot.images.length > 0 && (
+                          <div className="mt-2 pt-1 border-t border-amber-200/50">
+                            <div className="text-[9px] font-bold text-amber-900 mb-1 flex items-center justify-between">
+                              <span>Reference / Cover Photo ({spot.images.length})</span>
+                              <span className="text-[8px] text-zinc-400">Tap to inspect</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-1 rounded-lg overflow-hidden">
+                              {spot.images.map((imgUrl, idx) => (
+                                <div
+                                  key={idx}
+                                  onClick={() => onViewPhotoLightbox(spot.images, spot.bookName, spot.finderName, idx)}
+                                  className="relative aspect-square rounded-md overflow-hidden bg-zinc-200 cursor-pointer hover:opacity-95 transition-opacity border border-amber-200"
+                                >
+                                  <img
+                                    src={imgUrl}
+                                    alt={`${spot.bookName} ref ${idx + 1}`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -338,7 +380,15 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
                           </div>
                         )}
 
-
+                        {spot.notes && (
+                          <div className="text-[10px] text-zinc-700 font-medium flex items-start gap-1.5 pt-1 mt-1 border-t border-zinc-200/60">
+                            <Info className="w-3 h-3 text-[#F37021] flex-shrink-0 mt-0.5" />
+                            <div className="leading-snug">
+                              <span className="font-bold text-zinc-800">Note: </span>
+                              <span className="italic text-zinc-600">"{spot.notes}"</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* 3. Photos (Max 3 pictures inside stall) */}

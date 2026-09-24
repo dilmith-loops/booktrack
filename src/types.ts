@@ -12,6 +12,7 @@ export interface BookSpotting {
   postType?: 'spot' | 'request'; // 'spot' (default) = book found at stall; 'request' = user looking for a book
   bookName: string;
   author?: string;
+  preferredLanguage?: string;
   stallId: string;
   stallName: string;
   hall: string;

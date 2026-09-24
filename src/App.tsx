@@ -108,9 +108,6 @@ export default function App() {
 
   const handleSplashComplete = () => {
     setShowSplash(false);
-    if (!userProfile) {
-      setShowRegistration(true);
-    }
   };
 
   useEffect(() => {
@@ -463,8 +460,6 @@ export default function App() {
             setUserProfile(profile);
             setShowRegistration(false);
             setRegisteredUsers((prev) => [...prev.filter(u => u.handle !== profile.handle), profile]);
-            // Automatically launch Feature Demo tour upon fresh registration/login
-            setShowFeatureTour(true);
           }}
           onProfileUpdate={(profile) => {
             setUserProfile(profile);
@@ -476,7 +471,7 @@ export default function App() {
           }}
           onStartTour={() => setShowFeatureTour(true)}
           currentProfile={userProfile}
-          allowDismiss={!!userProfile}
+          allowDismiss={true}
         />
 
         {/* 3. Admin Control Center Modal */}
