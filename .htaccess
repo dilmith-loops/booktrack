@@ -6,6 +6,6 @@
     RewriteRule ^(\.git|\.env|storage|bootstrap/cache|vendor) - [F,L,NC]
 
     # Forward all web and API traffic into backend/public/
-    RewriteRule ^$ backend/public/ [L]
-    RewriteRule (.*) backend/public/$1 [L]
+    RewriteRule ^$ backend/public/ [L,QSA]
+    RewriteRule (.*) backend/public/$1 [L,QSA]
 </IfModule>

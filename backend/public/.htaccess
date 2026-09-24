@@ -9,7 +9,7 @@
 
     # Send API requests directly to Laravel Front Controller (matches /api and /booktrack/api)
     RewriteCond %{REQUEST_URI} (^|/)api(/.*)?$ [NC]
-    RewriteRule ^ index.php [L]
+    RewriteRule ^ index.php [L,QSA]
 
     # Serve real files and directories directly
     RewriteCond %{REQUEST_FILENAME} -f [OR]
