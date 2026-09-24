@@ -231,19 +231,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
               className="w-full h-full object-contain rounded-3xl drop-shadow-sm transition-transform duration-700 ease-out hover:scale-102"
             />
           </div>
-
-          {/* Subtitle / Brand Tag */}
-          <div className="mt-6 flex flex-col items-center text-center z-10">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-100/70 border border-orange-200/80 mb-2">
-              <Sparkles className="w-3.5 h-3.5 text-[#EA580C]" />
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#EA580C]">
-                Official Community App
-              </span>
-            </div>
-            <p className="text-xs font-semibold text-zinc-500">
-              Colombo International Book Fair 2026 • BMICH
-            </p>
-          </div>
         </div>
 
         {/* STEP 1: 2ND ONE (ATMOSPHERIC BOOK SCENE) */}
