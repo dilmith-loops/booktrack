@@ -108,8 +108,7 @@ export default function App() {
     notifications,
     unreadCount,
     markAsRead,
-    markAllAsRead,
-    simulateNotification
+    markAllAsRead
   } = useNotifications(spots, userProfile);
 
   const handleSelectNotification = (spotId: string) => {
@@ -600,7 +599,6 @@ export default function App() {
           onMarkNotificationAsRead={markAsRead}
           onMarkAllNotificationsAsRead={markAllAsRead}
           onSelectNotification={handleSelectNotification}
-          onSimulateNotification={simulateNotification}
         />
 
         {/* Main PWA View Switching */}

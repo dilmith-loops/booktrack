@@ -16,7 +16,6 @@ interface HeaderProps {
   onMarkNotificationAsRead?: (id: string) => void;
   onMarkAllNotificationsAsRead?: () => void;
   onSelectNotification?: (spotId: string) => void;
-  onSimulateNotification?: (type: 'reply' | 'mention') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -29,8 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
   unreadNotificationsCount = 0,
   onMarkNotificationAsRead = () => {},
   onMarkAllNotificationsAsRead = () => {},
-  onSelectNotification = () => {},
-  onSimulateNotification
+  onSelectNotification = () => {}
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-zinc-200/90 shadow-xs">
@@ -87,7 +85,6 @@ export const Header: React.FC<HeaderProps> = ({
             onMarkAllAsRead={onMarkAllNotificationsAsRead}
             onSelectNotification={onSelectNotification}
             onOpenProfile={onOpenProfile}
-            onSimulateNotification={onSimulateNotification}
             userProfile={userProfile}
           />
 

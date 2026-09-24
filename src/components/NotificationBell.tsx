@@ -6,7 +6,6 @@ import {
   MessageSquareQuote,
   AtSign,
   CheckCheck,
-  Sparkles,
   User,
   ArrowRight,
   BookOpen,
@@ -21,7 +20,6 @@ interface NotificationBellProps {
   onMarkAllAsRead: () => void;
   onSelectNotification: (spotId: string) => void;
   onOpenProfile: () => void;
-  onSimulateNotification?: (type: 'reply' | 'mention') => void;
   userProfile: UserProfile | null;
 }
 
@@ -32,7 +30,6 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   onMarkAllAsRead,
   onSelectNotification,
   onOpenProfile,
-  onSimulateNotification,
   userProfile
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -214,30 +211,6 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                     <span>Set Up Profile</span>
                   </button>
                 )}
-
-                {/* Demo Simulators */}
-                {onSimulateNotification && (
-                  <div className="pt-2 border-t border-zinc-100 mt-3 flex flex-wrap items-center justify-center gap-2">
-                    <button
-                      onClick={() => onSimulateNotification('reply')}
-                      id="demo-simulate-reply-btn"
-                      className="inline-flex items-center gap-1 bg-orange-50 hover:bg-orange-100 text-[#EA580C] border border-orange-200/80 text-[11px] font-bold px-2.5 py-1 rounded-full transition-all cursor-pointer"
-                      title="Simulate a reply to test notification"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      <span>Test Reply Alert</span>
-                    </button>
-                    <button
-                      onClick={() => onSimulateNotification('mention')}
-                      id="demo-simulate-mention-btn"
-                      className="inline-flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/80 text-[11px] font-bold px-2.5 py-1 rounded-full transition-all cursor-pointer"
-                      title="Simulate a mention to test notification"
-                    >
-                      <AtSign className="w-3 h-3" />
-                      <span>Test Mention Alert</span>
-                    </button>
-                  </div>
-                )}
               </div>
             ) : (
               filteredNotifications.map((n) => {
@@ -338,21 +311,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             )}
           </div>
 
-          {/* Quick test footer bar if user has notifications */}
-          {filteredNotifications.length > 0 && onSimulateNotification && (
-            <div className="px-3 py-2 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between text-[11px] text-zinc-500">
-              <span className="truncate">Tag fellow readers using @name</span>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <button
-                  onClick={() => onSimulateNotification('reply')}
-                  className="text-[10px] font-bold text-orange-600 hover:text-orange-700 bg-orange-100/60 hover:bg-orange-100 px-2 py-0.5 rounded-full cursor-pointer"
-                  title="Add simulated reply"
-                >
-                  + Test Reply
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Helpful footer hint */}
+          <div className="px-3.5 py-2.5 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between text-[11px] text-zinc-500">
+            <span className="truncate">Tag fellow readers using @handle in chat</span>
+          </div>
         </div>
       </div>,
       document.body

@@ -23,15 +23,12 @@ export function useNotifications(spots: BookSpotting[], userProfile: UserProfile
     }
   });
 
-  // Simulated notifications for demo & testing
-  const [simulatedNotifications, setSimulatedNotifications] = useState<AppNotification[]>(() => {
+  // Ensure any previously saved test notifications are purged
+  useEffect(() => {
     try {
-      const saved = localStorage.getItem('sampath_simulated_notifications');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+      localStorage.removeItem('sampath_simulated_notifications');
+    } catch {}
+  }, []);
 
   // Persist read IDs
   const persistReadIds = (newSet: Set<string>) => {
@@ -157,14 +154,12 @@ export function useNotifications(spots: BookSpotting[], userProfile: UserProfile
     return list;
   }, [spots, userProfile]);
 
-  // Combine real notifications and simulated notifications
+  // Deduplicate and prepare real notifications
   const allNotifications = useMemo(() => {
-    const combined = [...simulatedNotifications, ...realNotifications];
-    // Deduplicate by ID
     const seen = new Set<string>();
     const unique: AppNotification[] = [];
-    for (const item of combined) {
-      if (!seen.has(item.id)) {
+    for (const item of realNotifications) {
+      if (!item.id.startsWith('sim-') && !seen.has(item.id)) {
         seen.add(item.id);
         unique.push({
           ...item,
@@ -173,9 +168,8 @@ export function useNotifications(spots: BookSpotting[], userProfile: UserProfile
         });
       }
     }
-    // Sort descending by timestamp
     return unique.sort((a, b) => b.timestamp - a.timestamp);
-  }, [realNotifications, simulatedNotifications, readIds]);
+  }, [realNotifications, readIds]);
 
   const unreadCount = useMemo(() => {
     return allNotifications.filter(n => !n.isRead).length;
@@ -199,79 +193,10 @@ export function useNotifications(spots: BookSpotting[], userProfile: UserProfile
     });
   }, [allNotifications]);
 
-  // Simulate a reply or mention for quick demo & testing
-  const simulateNotification = useCallback(
-    (type: 'reply' | 'mention') => {
-      const senderNames = ['Tanya Perera', 'Sachintha De Silva', 'Nipuni Perera', 'Kasun Bandara'];
-      const senderHandles = ['@tanya_pages', '@sachin_reads', '@nipuni_reads', '@kasun_b'];
-      const sampleStalls = [
-        { name: 'Vijitha Yapa Bookshop', hall: 'Hall A' },
-        { name: 'Sarasavi Bookshop', hall: 'Hall B' },
-        { name: 'Expographic Books', hall: 'Hall C' }
-      ];
-
-      const idx = Math.floor(Math.random() * senderNames.length);
-      const stall = sampleStalls[idx % sampleStalls.length];
-      const now = Date.now();
-      const userHandle = userProfile?.handle || '@you';
-      const userName = userProfile?.name || 'Fellow Reader';
-
-      const newNotif: AppNotification =
-        type === 'reply'
-          ? {
-              id: `sim-reply-${now}`,
-              type: 'reply',
-              title: `${senderNames[idx]} replied to your book request`,
-              message: `Spotted copies on the front rack! Marked with special fair discount at ${stall.name} (${stall.hall}).`,
-              bookName: 'Madol Doova (English Translation)',
-              senderName: senderNames[idx],
-              senderHandle: senderHandles[idx],
-              spotId: 'req-2',
-              targetRequestId: 'req-2',
-              timestamp: now,
-              stallName: stall.name,
-              hall: stall.hall,
-              isRead: false
-            }
-          : {
-              id: `sim-mention-${now}`,
-              type: 'mention',
-              title: `${senderNames[idx]} mentioned you in chat`,
-              message: `Hey ${userHandle}, they just restocked the fiction section at ${stall.name}! Check it out before it sells out.`,
-              bookName: 'Harry Potter and the Order of the Phoenix',
-              senderName: senderNames[idx],
-              senderHandle: senderHandles[idx],
-              spotId: 'spot-hp-reply',
-              timestamp: now,
-              stallName: stall.name,
-              hall: stall.hall,
-              isRead: false
-            };
-
-      setSimulatedNotifications(prev => {
-        const next = [newNotif, ...prev];
-        try {
-          localStorage.setItem('sampath_simulated_notifications', JSON.stringify(next));
-        } catch {}
-        return next;
-      });
-    },
-    [userProfile]
-  );
-
-  const clearSimulatedNotifications = useCallback(() => {
-    setSimulatedNotifications([]);
-    try {
-      localStorage.removeItem('sampath_simulated_notifications');
-    } catch {}
-  }, []);
-
   return {
     notifications: allNotifications,
     unreadCount,
     markAsRead,
-    markAllAsRead,
-    simulateNotification,
-    clearSimulatedNotifications
+    markAllAsRead
   };
 }
