@@ -1,7 +1,8 @@
 import React from 'react';
 import { User } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
-import { UserProfile } from '../types';
+import { NotificationBell } from './NotificationBell';
+import { UserProfile, AppNotification } from '../types';
 
 interface HeaderProps {
   spotsCount: number;
@@ -9,13 +10,25 @@ interface HeaderProps {
   userProfile: UserProfile | null;
   onOpenProfile: () => void;
   onReplaySplash?: () => void;
+  notifications?: AppNotification[];
+  unreadNotificationsCount?: number;
+  onMarkNotificationAsRead?: (id: string) => void;
+  onMarkAllNotificationsAsRead?: () => void;
+  onSelectNotification?: (spotId: string) => void;
+  onSimulateNotification?: (type: 'reply' | 'mention') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   spotsCount,
   userProfile,
   onOpenProfile,
-  onReplaySplash
+  onReplaySplash,
+  notifications = [],
+  unreadNotificationsCount = 0,
+  onMarkNotificationAsRead = () => {},
+  onMarkAllNotificationsAsRead = () => {},
+  onSelectNotification = () => {},
+  onSimulateNotification
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-zinc-200/90 shadow-xs">
@@ -37,7 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Main App Bar - Only Logo and User Icon */}
+      {/* Main App Bar - Logo, Notification Bell and User Icon */}
       <div className="px-3 sm:px-4 py-2 flex items-center justify-between gap-3 max-w-2xl mx-auto h-16 sm:h-20">
         {/* Left: Only Logo */}
         <button
@@ -53,8 +66,18 @@ export const Header: React.FC<HeaderProps> = ({
           />
         </button>
 
-        {/* Right: User Icon */}
+        {/* Right: Notification Bell & User Profile */}
         <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
+          <NotificationBell
+            notifications={notifications}
+            unreadCount={unreadNotificationsCount}
+            onMarkAsRead={onMarkNotificationAsRead}
+            onMarkAllAsRead={onMarkAllNotificationsAsRead}
+            onSelectNotification={onSelectNotification}
+            onOpenProfile={onOpenProfile}
+            onSimulateNotification={onSimulateNotification}
+            userProfile={userProfile}
+          />
 
           <button
             onClick={onOpenProfile}
@@ -73,3 +96,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+

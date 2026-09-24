@@ -1,6 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
 import {defineConfig} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
 
@@ -81,10 +82,43 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          enabled: true,
-          type: 'module',
+          enabled: false,
         },
       }),
+      {
+        name: 'dev-rewrite-booktrack',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (req.url) {
+              if (req.url === '/booktrack' || req.url === '/booktrack/') {
+                req.url = '/';
+              } else if (req.url.startsWith('/booktrack/')) {
+                req.url = req.url.replace(/^\/booktrack/, '');
+              }
+            }
+            // Serve dist assets fallback for cached clients
+            if (req.url && (req.url.startsWith('/assets/') || req.url === '/registerSW.js' || req.url === '/manifest.webmanifest')) {
+              const localDistFile = path.resolve(__dirname, 'dist', req.url.slice(1));
+              if (fs.existsSync(localDistFile)) {
+                const ext = path.extname(localDistFile).toLowerCase();
+                const mimeTypes: Record<string, string> = {
+                  '.js': 'application/javascript',
+                  '.css': 'text/css',
+                  '.png': 'image/png',
+                  '.jpg': 'image/jpeg',
+                  '.jpeg': 'image/jpeg',
+                  '.svg': 'image/svg+xml',
+                  '.json': 'application/json',
+                  '.webmanifest': 'application/manifest+json'
+                };
+                res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+                return fs.createReadStream(localDistFile).pipe(res);
+              }
+            }
+            next();
+          });
+        },
+      },
     ],
     resolve: {
       alias: {

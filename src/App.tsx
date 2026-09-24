@@ -13,6 +13,7 @@ import { FeatureDemoTour } from './components/FeatureDemoTour';
 import { Stall, BookSpotting, UserProfile, Announcement } from './types';
 import { BMICH_STALLS, INITIAL_SPOTTINGS } from './data/initialData';
 import { apiFetch } from './utils/api';
+import { useNotifications } from './hooks/useNotifications';
 import { Search, MapPin, Building2, CreditCard, Check, Sparkles, Phone, ShieldCheck, Tag, Megaphone, Bell, X } from 'lucide-react';
 
 export default function App() {
@@ -91,6 +92,25 @@ export default function App() {
   // Post modal & Lightbox
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [initialBookForModal, setInitialBookForModal] = useState('');
+  const [replyingToSpot, setReplyingToSpot] = useState<BookSpotting | null>(null);
+  const [highlightedSpotId, setHighlightedSpotId] = useState<string | null>(null);
+
+  // User notifications for mentions and replies
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    simulateNotification
+  } = useNotifications(spots, userProfile);
+
+  const handleSelectNotification = (spotId: string) => {
+    setActiveTab('chat');
+    setHighlightedSpotId(spotId);
+    setTimeout(() => {
+      setHighlightedSpotId(null);
+    }, 4500);
+  };
 
   const [lightboxState, setLightboxState] = useState<{
     isOpen: boolean;
@@ -108,6 +128,11 @@ export default function App() {
 
   const handleSplashComplete = () => {
     setShowSplash(false);
+    if (userProfile) {
+      setActiveTab('chat');
+    } else {
+      setShowRegistration(true);
+    }
   };
 
   useEffect(() => {
@@ -138,6 +163,15 @@ export default function App() {
 
   const handleSpotAdded = (newSpot: BookSpotting) => {
     setSpots((prev) => [newSpot, ...prev]);
+    // Save to user's authored spots so replies trigger notifications
+    try {
+      const saved = localStorage.getItem('sampath_my_posted_spots');
+      const arr = saved ? JSON.parse(saved) : [];
+      if (!arr.includes(newSpot.id)) {
+        arr.push(newSpot.id);
+        localStorage.setItem('sampath_my_posted_spots', JSON.stringify(arr));
+      }
+    } catch {}
     setActiveTab('chat');
   };
 
@@ -454,11 +488,20 @@ export default function App() {
 
         {/* 2. Registration & Login Authentication Modal */}
         <RegistrationWindow
-          isOpen={showRegistration}
-          onClose={() => setShowRegistration(false)}
+          isOpen={showRegistration || (!userProfile && !showSplash)}
+          onClose={() => {
+            if (!userProfile) {
+              // Unauthenticated users cannot bypass to chat; return to splash screen
+              setShowRegistration(false);
+              setShowSplash(true);
+            } else {
+              setShowRegistration(false);
+            }
+          }}
           onRegister={(profile) => {
             setUserProfile(profile);
             setShowRegistration(false);
+            setActiveTab('chat');
             setRegisteredUsers((prev) => [...prev.filter(u => u.handle !== profile.handle), profile]);
           }}
           onProfileUpdate={(profile) => {
@@ -468,10 +511,11 @@ export default function App() {
           onLogout={() => {
             setUserProfile(null);
             setShowRegistration(false);
+            setShowSplash(true);
           }}
           onStartTour={() => setShowFeatureTour(true)}
           currentProfile={userProfile}
-          allowDismiss={true}
+          allowDismiss={!!userProfile}
         />
 
         {/* 3. Admin Control Center Modal */}
@@ -510,8 +554,11 @@ export default function App() {
           onNavigateTab={(tab) => setActiveTab(tab)}
         />
 
-        {/* Offline Status Bar */}
-        <OfflineIndicator />
+        {/* ONLY AUTHENTICATED USERS CAN VIEW CHAT, HEADER, RADAR, STALLS, PERKS, AND NAVIGATION */}
+        {userProfile ? (
+          <>
+            {/* Offline Status Bar */}
+            <OfflineIndicator />
 
         {/* Live Broadcast Announcement Banner */}
         {activeAnnouncement && (
@@ -537,6 +584,12 @@ export default function App() {
           userProfile={userProfile}
           onOpenProfile={() => setShowRegistration(true)}
           onReplaySplash={() => setShowSplash(true)}
+          notifications={notifications}
+          unreadNotificationsCount={unreadCount}
+          onMarkNotificationAsRead={markAsRead}
+          onMarkAllNotificationsAsRead={markAllAsRead}
+          onSelectNotification={handleSelectNotification}
+          onSimulateNotification={simulateNotification}
         />
 
         {/* Main PWA View Switching */}
@@ -547,8 +600,9 @@ export default function App() {
               spots={spots.filter((s) => !s.isArchived)}
               selectedHallFilter={selectedHallFilter}
               onSelectHallFilter={setSelectedHallFilter}
-              onOpenNewSpotModal={(title?: string) => {
+              onOpenNewSpotModal={(title?: string, replySpot?: BookSpotting) => {
                 setInitialBookForModal(title || '');
+                setReplyingToSpot(replySpot || null);
                 setIsPostModalOpen(true);
               }}
               onUpvoteSpot={handleUpvoteSpot}
@@ -560,6 +614,7 @@ export default function App() {
               onQuickSpotSubmit={handleSpotAdded}
               onArchiveSpot={handleArchiveSpot}
               onDeleteSpot={handleDeleteSpot}
+              highlightedSpotId={highlightedSpotId}
             />
           )}
 
@@ -725,14 +780,31 @@ export default function App() {
             setIsPostModalOpen(true);
           }}
         />
+      </>
+    ) : (
+      !showSplash && (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 min-h-screen relative overflow-hidden select-none">
+          <img
+            src={`${import.meta.env.BASE_URL}splash/splash-bg.jpg`}
+            alt="BMICH Atmosphere"
+            className="absolute inset-0 w-full h-full object-cover object-center filter blur-xs brightness-75 scale-105"
+          />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-xs" />
+        </div>
+      )
+    )}
 
         {/* Modals */}
         <PostBookSpotModal
           isOpen={isPostModalOpen}
-          onClose={() => setIsPostModalOpen(false)}
+          onClose={() => {
+            setIsPostModalOpen(false);
+            setReplyingToSpot(null);
+          }}
           stalls={stalls}
           existingSpots={spots}
           initialBookTitle={initialBookForModal}
+          replyToSpot={replyingToSpot}
           userProfile={userProfile}
           onSpotAdded={handleSpotAdded}
         />

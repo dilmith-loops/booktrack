@@ -20,7 +20,7 @@ interface CommunityFeedProps {
   spots: BookSpotting[];
   selectedHallFilter: string;
   onSelectHallFilter: (hall: string) => void;
-  onOpenNewSpotModal: (initialTitle?: string) => void;
+  onOpenNewSpotModal: (initialTitle?: string, replyToSpot?: BookSpotting) => void;
   onUpvoteSpot: (spotId: string) => void;
   onRateSpot?: (spotId: string, score: number) => void;
   onUpdateStatus: (spotId: string, status: 'In Stock' | 'Few Copies Left' | 'Sold Out' | 'Looking for Book' | 'Found') => void;
@@ -30,6 +30,7 @@ interface CommunityFeedProps {
   onQuickSpotSubmit?: (spot: BookSpotting) => void;
   onArchiveSpot?: (spotId: string, userHandle?: string) => void;
   onDeleteSpot?: (spotId: string, userHandle?: string) => void;
+  highlightedSpotId?: string | null;
 }
 
 export const CommunityFeed: React.FC<CommunityFeedProps> = ({
@@ -44,7 +45,8 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
   stalls = [],
   onQuickSpotSubmit,
   onArchiveSpot,
-  onDeleteSpot
+  onDeleteSpot,
+  highlightedSpotId
 }) => {
   // Track local user ratings { [spotId]: score }
   const [userRatings, setUserRatings] = useState<Record<string, number>>(() => {
@@ -85,8 +87,23 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
 
   // Keep chat scrolled to the latest message on initial load and when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [spots.length]);
+    if (!highlightedSpotId) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [spots.length, highlightedSpotId]);
+
+  // Scroll to highlighted spot when notification is clicked
+  useEffect(() => {
+    if (highlightedSpotId) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`chat-spot-${highlightedSpotId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedSpotId]);
 
   const formatChatTime = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -95,7 +112,7 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
 
   // User initiates a reply to a "looking for a book" request -> open post modal pre-filled
   const handleStartReply = (requestSpot: BookSpotting) => {
-    onOpenNewSpotModal(requestSpot.bookName);
+    onOpenNewSpotModal(requestSpot.bookName, requestSpot);
   };
 
   // Handle rating a find
@@ -162,11 +179,15 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
 
             const isRequest = spot.postType === 'request';
             const userRating = userRatings[spot.id] || spot.userRating;
+            const isHighlighted = highlightedSpotId === spot.id;
 
             return (
               <div
                 key={spot.id}
-                className={`flex flex-col ${isUserSelf ? 'items-end' : 'items-start'} animate-in fade-in duration-150`}
+                id={`chat-spot-${spot.id}`}
+                className={`flex flex-col ${isUserSelf ? 'items-end' : 'items-start'} animate-in fade-in duration-150 transition-all ${
+                  isHighlighted ? 'ring-4 ring-[#F37021] rounded-3xl p-1 bg-orange-100/60 shadow-lg' : ''
+                }`}
               >
                 {/* Message Bubble */}
                 <div

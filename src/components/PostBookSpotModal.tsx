@@ -12,6 +12,7 @@ interface PostBookSpotModalProps {
   stalls: Stall[];
   existingSpots: BookSpotting[];
   initialBookTitle?: string;
+  replyToSpot?: BookSpotting | null;
   userProfile?: UserProfile | null;
   onSpotAdded: (newSpot: BookSpotting) => void;
 }
@@ -22,6 +23,7 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
   stalls,
   existingSpots,
   initialBookTitle = '',
+  replyToSpot,
   userProfile,
   onSpotAdded
 }) => {
@@ -303,7 +305,10 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
         finderName: effectiveFinder,
         finderHandle: effectiveHandle,
         shelfLocationNote: shelfLocationNote.trim() || undefined,
-        notes: spotNotes.trim() || undefined
+        notes: spotNotes.trim() || undefined,
+        replyToRequestId: replyToSpot?.id || undefined,
+        taggedRequesterName: replyToSpot?.finderName || undefined,
+        taggedRequesterHandle: replyToSpot?.finderHandle || undefined
       };
 
       const res = await apiFetch('/api/spots', {
@@ -402,6 +407,20 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
             <span>I'm Looking for a Book</span>
           </button>
         </div>
+
+        {/* Reply Context Banner */}
+        {replyToSpot && modalMode === 'spot' && (
+          <div className="bg-orange-50 border-b border-orange-200/90 px-4 py-2.5 flex items-center justify-between text-xs text-orange-950">
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-[#EA580C] text-white flex items-center justify-center font-bold text-[10px] flex-shrink-0">
+                @
+              </span>
+              <span>
+                Replying to <strong>{replyToSpot.finderName}</strong>'s request for "<strong>{replyToSpot.bookName}</strong>"
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 max-h-[75vh] overflow-y-auto">

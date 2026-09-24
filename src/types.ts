@@ -93,3 +93,21 @@ export interface Announcement {
   isActive: boolean;
   publishedBy?: string;
 }
+
+export interface AppNotification {
+  id: string;
+  type: 'reply' | 'mention';
+  title: string;
+  message: string;
+  bookName: string;
+  senderName: string;
+  senderHandle?: string;
+  spotId: string;
+  targetRequestId?: string;
+  timestamp: number;
+  timeAgo?: string;
+  stallName?: string;
+  hall?: string;
+  isRead?: boolean;
+}
+

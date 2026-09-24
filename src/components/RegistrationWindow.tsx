@@ -485,6 +485,18 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
               />
             </div>
 
+            {!currentProfile && onClose && (
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                id="back-to-splash-btn"
+                className="px-2.5 py-1 rounded-xl bg-black/25 hover:bg-black/45 text-white text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                title="Return to Welcome Screen"
+              >
+                <span>&larr; Welcome Screen</span>
+              </button>
+            )}
+
             {allowDismiss && (
               <button
                 onClick={handleCloseModal}
