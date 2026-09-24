@@ -589,6 +589,7 @@ export default function App() {
 
         {/* Streamlined Mobile PWA Top App Bar */}
         <Header
+          activeTab={activeTab}
           spotsCount={spots.length}
           stallsCount={stalls.length}
           userProfile={userProfile}
