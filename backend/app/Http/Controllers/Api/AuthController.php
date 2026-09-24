@@ -14,6 +14,42 @@ use Illuminate\Support\Str;
 class AuthController extends Controller
 {
     /**
+     * Extract client IP address respecting reverse proxies (Cloudflare, LiteSpeed, Nginx).
+     */
+    public static function resolveClientIp(Request $request): ?string
+    {
+        $headers = [
+            'CF-Connecting-IP',
+            'X-Forwarded-For',
+            'X-Real-IP',
+        ];
+
+        foreach ($headers as $header) {
+            $val = $request->header($header);
+            if (!empty($val)) {
+                // X-Forwarded-For may contain multiple comma-separated IPs: client, proxy1, proxy2
+                if (str_contains($val, ',')) {
+                    $parts = explode(',', $val);
+                    $clientIp = trim($parts[0]);
+                } else {
+                    $clientIp = trim($val);
+                }
+
+                if (filter_var($clientIp, FILTER_VALIDATE_IP)) {
+                    return $clientIp;
+                }
+            }
+        }
+
+        $ip = $request->ip() ?: ($request->server('REMOTE_ADDR') ?? null);
+        if ($ip && filter_var($ip, FILTER_VALIDATE_IP)) {
+            return $ip;
+        }
+
+        return $ip ?: null;
+    }
+
+    /**
      * Register a new community visitor / spotter.
      */
     public function register(Request $request): JsonResponse
@@ -59,6 +95,8 @@ class AuthController extends Controller
             $counter++;
         }
 
+        $clientIp = self::resolveClientIp($request);
+
         // Create user
         $user = User::create([
             'name' => $name,
@@ -66,6 +104,7 @@ class AuthController extends Controller
             'phone' => $phone,
             'handle' => $handle,
             'is_sampath_cardholder' => $isSampathCardholder,
+            'ip_address' => $clientIp,
             'password' => Hash::make($password),
         ]);
 
@@ -123,6 +162,15 @@ class AuthController extends Controller
             return response()->json([
                 'error' => 'Invalid password. Please check your credentials or use Forgot Password.'
             ], 401);
+        }
+
+        // Backfill IP if not previously set
+        if (empty($user->ip_address)) {
+            $clientIp = self::resolveClientIp($request);
+            if ($clientIp) {
+                $user->ip_address = $clientIp;
+                $user->save();
+            }
         }
 
         return response()->json([
@@ -211,6 +259,12 @@ class AuthController extends Controller
         // Clear OTP on successful authentication
         $user->otp_code = null;
         $user->otp_expires_at = null;
+        if (empty($user->ip_address)) {
+            $clientIp = self::resolveClientIp($request);
+            if ($clientIp) {
+                $user->ip_address = $clientIp;
+            }
+        }
         $user->save();
 
         return response()->json([

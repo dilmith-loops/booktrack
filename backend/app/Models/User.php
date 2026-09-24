@@ -18,13 +18,26 @@ use Illuminate\Notifications\Notifiable;
     'is_sampath_cardholder',
     'password',
     'otp_code',
-    'otp_expires_at'
+    'otp_expires_at',
+    'ip_address',
 ])]
 #[Hidden(['password', 'remember_token', 'otp_code'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    protected $fillable = [
+        'name',
+        'email',
+        'phone',
+        'handle',
+        'is_sampath_cardholder',
+        'password',
+        'otp_code',
+        'otp_expires_at',
+        'ip_address',
+    ];
 
     /**
      * Get the attributes that should be cast.
@@ -55,6 +68,7 @@ class User extends Authenticatable
             'isSampathCardholder' => (bool) $this->is_sampath_cardholder,
             'registeredAt' => $this->created_at ? (int) $this->created_at->getTimestampMs() : (int) round(microtime(true) * 1000),
             'isAdmin' => false,
+            'ipAddress' => $this->ip_address ?: '',
         ];
     }
 }

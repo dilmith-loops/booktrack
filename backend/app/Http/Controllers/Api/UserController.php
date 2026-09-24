@@ -110,12 +110,15 @@ class UserController extends Controller
             }
         }
 
+        $clientIp = AuthController::resolveClientIp($request);
+
         $user = User::create([
             'name' => $name,
             'email' => $email,
             'phone' => $phone,
             'handle' => $handle,
             'is_sampath_cardholder' => $isSampathCardholder,
+            'ip_address' => $clientIp,
             'password' => Hash::make($password ?: 'SampathUser@2026')
         ]);
 

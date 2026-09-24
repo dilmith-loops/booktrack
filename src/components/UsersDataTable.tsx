@@ -409,7 +409,7 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
       return;
     }
 
-    const headers = ['ID', 'Name', 'Handle', 'Email', 'Phone', 'Sampath Cardholder', 'Registered Date'];
+    const headers = ['ID', 'Name', 'Handle', 'Email', 'Phone', 'Sampath Cardholder', 'Registration IP', 'Registered Date'];
     const rows = sortedUsers.map((u) => [
       `"${u.id || ''}"`,
       `"${u.name.replace(/"/g, '""')}"`,
@@ -417,6 +417,7 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
       `"${u.email || ''}"`,
       `"${u.phone || ''}"`,
       u.isSampathCardholder ? 'Yes' : 'No',
+      `"${u.ipAddress || ''}"`,
       `"${new Date(u.registeredAt || Date.now()).toLocaleString()}"`
     ]);
 
@@ -701,9 +702,15 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                         </button>
                       </td>
 
-                      {/* Joined Date */}
+                      {/* Joined Date & IP */}
                       <td className="p-3.5 text-zinc-400 text-[11px]">
-                        {user.registeredAt ? new Date(user.registeredAt).toLocaleDateString() : 'Active Spotter'}
+                        <div>{user.registeredAt ? new Date(user.registeredAt).toLocaleDateString() : 'Active Spotter'}</div>
+                        {user.ipAddress ? (
+                          <div className="text-[10px] font-mono text-zinc-500 flex items-center gap-1 mt-0.5" title={`Registration IP: ${user.ipAddress}`}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/70 inline-block"></span>
+                            <span>{user.ipAddress}</span>
+                          </div>
+                        ) : null}
                       </td>
 
                       {/* Actions */}
@@ -1098,6 +1105,12 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                 <span className="text-zinc-500 font-bold">Registration Date:</span>
                 <span className="text-zinc-400 font-mono text-[11px]">
                   {viewingUser.registeredAt ? new Date(viewingUser.registeredAt).toLocaleString() : 'N/A'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-500 font-bold">Registration IP:</span>
+                <span className="text-zinc-300 font-mono text-[11px] bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
+                  {viewingUser.ipAddress || '—'}
                 </span>
               </div>
             </div>

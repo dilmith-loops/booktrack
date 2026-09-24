@@ -81,6 +81,7 @@ export interface UserProfile {
   isSampathCardholder: boolean;
   registeredAt: number;
   isAdmin?: boolean;
+  ipAddress?: string;
 }
 
 export interface Announcement {
