@@ -34,9 +34,22 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
   const [customStallName, setCustomStallName] = useState('');
   const [customHall, setCustomHall] = useState('');
   const [images, setImages] = useState<string[]>([]);
-  const [finderName, setFinderName] = useState(userProfile?.name || '');
-  const [priceOrOffer, setPriceOrOffer] = useState('');
   const [shelfLocationNote, setShelfLocationNote] = useState('');
+
+  // Always attribute to the logged-in user
+  const getLoggedInUser = (): UserProfile | null => {
+    if (userProfile?.name) return userProfile;
+    try {
+      const saved = localStorage.getItem('sampath_bookfair_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const loggedInUser = getLoggedInUser();
+  const effectiveFinder = loggedInUser?.name?.trim() || loggedInUser?.handle?.trim() || 'Fair Visitor';
+  const effectiveHandle = loggedInUser?.handle?.trim() || undefined;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVettingImage, setIsVettingImage] = useState(false);
@@ -54,7 +67,6 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
     setCustomStallName('');
     setCustomHall('');
     setImages([]);
-    setPriceOrOffer('');
     setShelfLocationNote('');
     setErrorMsg(null);
     setAiBlockedReason(null);
@@ -69,17 +81,12 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
     onClose();
   };
 
-  // Sync initialBookTitle & userProfile on open
+  // Sync initialBookTitle on open
   useEffect(() => {
-    if (isOpen) {
-      if (initialBookTitle) {
-        setBookName(initialBookTitle);
-      }
-      if (userProfile?.name && !finderName) {
-        setFinderName(userProfile.name);
-      }
+    if (isOpen && initialBookTitle) {
+      setBookName(initialBookTitle);
     }
-  }, [isOpen, initialBookTitle, userProfile]);
+  }, [isOpen, initialBookTitle]);
 
   // Check if book was already found
   useEffect(() => {
@@ -100,7 +107,7 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
   const bookNameViolation = checkLocalProfanity(bookName);
   const notesViolation = modalMode === 'request' ? checkLocalProfanity(requestNotes) : { isClean: true };
   const locationViolation = modalMode === 'spot' ? checkLocalProfanity(shelfLocationNote) : { isClean: true };
-  const otherFieldsViolation = checkLocalProfanity(`${priceOrOffer} ${finderName} ${customStallName}`);
+  const otherFieldsViolation = checkLocalProfanity(customStallName);
 
   const localViolation = !bookNameViolation.isClean
     ? bookNameViolation
@@ -208,13 +215,12 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
     setIsSubmitting(true);
 
     try {
-      const effectiveFinder = finderName.trim() || userProfile?.name || 'Fair Visitor';
-
       if (modalMode === 'request') {
         const payload = {
           postType: 'request',
           bookName: bookName.trim(),
           finderName: effectiveFinder,
+          finderHandle: effectiveHandle,
           notes: requestNotes.trim() || undefined
         };
 
@@ -288,7 +294,7 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
         stallNumber,
         images,
         finderName: effectiveFinder,
-        priceOrOffer: priceOrOffer.trim() || undefined,
+        finderHandle: effectiveHandle,
         shelfLocationNote: shelfLocationNote.trim() || undefined
       };
 
@@ -548,7 +554,7 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
               <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900">
                 <p className="font-bold">How this appears on the group chat:</p>
                 <p className="mt-1 italic text-zinc-700">
-                  "{finderName || 'You'} is looking for {bookName || 'Harry Potter - Order of the Phoenix'}"
+                  "{effectiveFinder || 'You'} is looking for {bookName || 'Harry Potter - Order of the Phoenix'}"
                 </p>
                 <p className="mt-1 text-[11px] text-zinc-500">
                   Other visitors browsing BMICH stalls can tap "I Found This!" to tag you with the exact stall and shelf photo.
@@ -742,38 +748,24 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
                   </div>
                 )}
               </div>
-
-              {/* 5. Price or Offer */}
-              <div>
-                <label className="block text-xs font-black text-zinc-900 uppercase tracking-wider mb-1">
-                  Price / Fair Deal (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={priceOrOffer}
-                  onChange={(e) => setPriceOrOffer(e.target.value)}
-                  placeholder="e.g. Rs. 1,800 (20% off with Sampath Card)"
-                  className="w-full px-3.5 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-[#F37021] focus:bg-white"
-                />
-              </div>
             </>
           )}
 
-          {/* Finder Name / Handle */}
-          <div>
-            <label className="block text-xs font-black text-zinc-900 uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>Your Name / Handle</span>
-              <span className="text-[10px] text-zinc-400 font-bold">Community Display</span>
-            </label>
-            <div className="relative">
-              <User className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                value={finderName}
-                onChange={(e) => setFinderName(e.target.value)}
-                placeholder="e.g. Kasun or @kasun_reads"
-                className="w-full pl-9 pr-3 py-2 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-semibold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-[#F37021] focus:bg-white"
-              />
+          {/* Active Spotter Attribution (Always logged-in user) */}
+          <div className="flex items-center gap-2.5 p-3 bg-orange-50/80 border border-orange-200/80 rounded-2xl">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#F37021] to-[#EA580C] text-white flex items-center justify-center font-black text-xs shadow-xs flex-shrink-0">
+              {(effectiveFinder || 'U').charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1 leading-tight">
+              <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Posting To Community As</div>
+              <div className="text-xs font-black text-zinc-900 truncate">
+                {effectiveFinder}{' '}
+                {effectiveHandle && (
+                  <span className="font-mono text-[11px] font-bold text-[#F37021]">
+                    ({effectiveHandle})
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 

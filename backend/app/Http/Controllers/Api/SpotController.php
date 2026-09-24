@@ -110,9 +110,14 @@ class SpotController extends Controller
         // 4. Handle "Looking for a book" request
         if ($postType === 'request') {
             $reqId = 'req-' . $nowTimestamp . '-' . Str::lower(Str::random(5));
-            $handle = $finderName !== ''
-                ? (str_starts_with($finderName, '@') ? $finderName : '@' . Str::slug($finderName, '_'))
-                : '@booklover';
+            $rawHandle = trim((string) $request->input('finderHandle', ''));
+            if (!empty($rawHandle)) {
+                $handle = str_starts_with($rawHandle, '@') ? $rawHandle : '@' . $rawHandle;
+            } else {
+                $handle = $finderName !== ''
+                    ? (str_starts_with($finderName, '@') ? $finderName : '@' . Str::slug($finderName, '_'))
+                    : '@booklover';
+            }
 
             $newRequest = Spot::create([
                 'id' => $reqId,
@@ -165,9 +170,14 @@ class SpotController extends Controller
             ->first();
 
         $spotId = 'spot-' . $nowTimestamp . '-' . Str::lower(Str::random(5));
-        $handle = $finderName !== ''
-            ? (str_starts_with($finderName, '@') ? $finderName : '@' . Str::slug($finderName, '_'))
-            : '@bookspotter';
+        $rawHandle = trim((string) $request->input('finderHandle', ''));
+        if (!empty($rawHandle)) {
+            $handle = str_starts_with($rawHandle, '@') ? $rawHandle : '@' . $rawHandle;
+        } else {
+            $handle = $finderName !== ''
+                ? (str_starts_with($finderName, '@') ? $finderName : '@' . Str::slug($finderName, '_'))
+                : '@bookspotter';
+        }
 
         $newSpot = Spot::create([
             'id' => $spotId,
