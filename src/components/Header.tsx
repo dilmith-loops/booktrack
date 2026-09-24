@@ -60,9 +60,9 @@ export const Header: React.FC<HeaderProps> = ({
           title="Sampath Book Finder"
         >
           <img
-            src={`${import.meta.env.BASE_URL}logo.png`}
+            src={`${import.meta.env.BASE_URL}header-logo.png`}
             alt="Sampath Bank"
-            className="h-10 sm:h-14 w-auto object-contain"
+            className="h-8 sm:h-10 w-auto object-contain"
           />
         </button>
 
