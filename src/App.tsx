@@ -485,7 +485,8 @@ export default function App() {
           onClose={() => {
             setShowAdminModal(false);
             if (checkIsAdminRoute()) {
-              window.history.pushState({}, '', '/');
+              const basePath = window.location.pathname.startsWith('/booktrack') ? '/booktrack/' : '/';
+              window.history.pushState({}, '', basePath);
             }
           }}
           spots={spots}
