@@ -5,8 +5,7 @@ import {
   ArrowRight,
   Wrench,
   AlertTriangle,
-  RefreshCw,
-  Lock
+  RefreshCw
 } from 'lucide-react';
 
 interface SplashScreenProps {
@@ -147,20 +146,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
                   <RefreshCw className={`w-3.5 h-3.5 ${isCheckingStatus ? 'animate-spin text-[#F37021]' : 'text-zinc-300'}`} />
                   <span>{isCheckingStatus ? 'Checking Platform Status...' : 'Check Status / Refresh'}</span>
                 </button>
-              )}
-
-              {onOpenAdmin && (
-                <div className="pt-2 border-t border-zinc-100 w-full text-center">
-                  <button
-                    type="button"
-                    onClick={onOpenAdmin}
-                    id="maintenance-admin-link-btn"
-                    className="text-[11px] font-semibold text-zinc-400 hover:text-[#F37021] transition-colors cursor-pointer inline-flex items-center gap-1.5"
-                  >
-                    <Lock className="w-3 h-3" />
-                    <span>Staff / Administrator Access</span>
-                  </button>
-                </div>
               )}
             </div>
           ) : (
