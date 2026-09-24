@@ -3,9 +3,12 @@
     DirectoryIndex index.html index.php
 
     # Prevent direct access to sensitive directories and files
-    RewriteRule ^(\.git|\.env|storage|bootstrap/cache|vendor) - [F,L,NC]
+    RewriteRule ^(\.git|\.env|backend/storage|backend/bootstrap/cache|backend/vendor) - [F,L,NC]
 
-    # Forward all web and API traffic into backend/public/
+    # Don't rewrite if already pointing to backend/public
+    RewriteCond %{REQUEST_URI} !^/backend/public/ [NC]
     RewriteRule ^$ backend/public/ [L,QSA]
-    RewriteRule (.*) backend/public/$1 [L,QSA]
+
+    RewriteCond %{REQUEST_URI} !^/backend/public/ [NC]
+    RewriteRule ^(.*)$ backend/public/$1 [L,QSA]
 </IfModule>
