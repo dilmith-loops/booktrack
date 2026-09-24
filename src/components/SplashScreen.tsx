@@ -14,8 +14,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
 
   const baseUrl = import.meta.env.BASE_URL;
   const bgImg = `${baseUrl}splash/splash-bg.jpg`;
-  const cleanLogoImg = `${baseUrl}splash/logo-clean.png`;
-  const logoFallback = `${baseUrl}splash/splash-logo.jpg`;
+  const cleanLogoImg = `${baseUrl}splash/splash-logo.jpg`;
+  const logoFallback = `${baseUrl}logo.png`;
 
   const handleEnter = useCallback(() => {
     setFadingOut(true);
@@ -24,7 +24,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 select-none overflow-hidden transition-all duration-500 ${
+      className={`fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 select-none overflow-hidden transition-all duration-500 bg-[#09090B] ${
         fadingOut ? 'opacity-0 scale-105 pointer-events-none' : 'opacity-100 scale-100'
       }`}
     >

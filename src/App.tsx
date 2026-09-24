@@ -68,8 +68,16 @@ export default function App() {
     }
   });
 
-  // Flow State: Splash Screen -> Registration Window
-  const [showSplash, setShowSplash] = useState<boolean>(() => !checkIsAdminRoute());
+  // Flow State: Splash Screen only for unauthenticated first-time visitors
+  const [showSplash, setShowSplash] = useState<boolean>(() => {
+    if (checkIsAdminRoute()) return false;
+    try {
+      const saved = localStorage.getItem('sampath_bookfair_user');
+      // Already logged in - do not show splash screen on page refresh
+      if (saved) return false;
+    } catch {}
+    return true;
+  });
   const [showRegistration, setShowRegistration] = useState(false);
 
   useEffect(() => {
