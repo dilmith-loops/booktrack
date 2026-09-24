@@ -1,5 +1,6 @@
 <IfModule mod_rewrite.c>
     Options -MultiViews -Indexes
+    DirectoryIndex index.html index.php
     RewriteEngine On
 
     # Handle Authorization Header for APIs

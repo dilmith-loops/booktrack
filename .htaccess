@@ -1,5 +1,6 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    DirectoryIndex index.html index.php
 
     # Prevent direct access to sensitive directories and files
     RewriteRule ^(\.git|\.env|storage|bootstrap/cache|vendor) - [F,L,NC]
