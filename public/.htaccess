@@ -1,20 +1,70 @@
+# ==============================================================================
+# Security & Routing Configuration for Sampath Book Finder (public)
+# ==============================================================================
+
 <IfModule mod_rewrite.c>
     Options -MultiViews -Indexes
+    DirectoryIndex index.html index.php
     RewriteEngine On
 
-    # Handle Authorization Header for APIs
+    # 1. Canonical Redirect: www to apex domain (HTTPS)
+    RewriteCond %{HTTP_HOST} ^www\.bookfairtracker\.com$ [NC]
+    RewriteRule ^(.*)$ https://bookfairtracker.com/$1 [L,R=301]
+
+    # 2. Force HTTPS Everywhere
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [L,R=301]
+
+    # 3. Block malicious scanner probes with real 404 (avoids soft-404 SPA fallback)
+    RewriteRule (wp-login\.php|wp-admin|xmlrpc\.php|phpmyadmin|cgi-bin|\.asp|\.jsp|\.sql$|\.bak$) - [R=404,L,NC]
+
+    # 4. Handle Authorization Header for API requests
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    # Send API requests directly to Laravel Front Controller (matches /api and /booktrack/api)
+    # 5. Send API requests directly to Laravel Front Controller
     RewriteCond %{REQUEST_URI} (^|/)api(/.*)?$ [NC]
-    RewriteRule ^ index.php [L]
+    RewriteRule ^ index.php [L,QSA]
 
-    # Serve real files and directories directly
+    # 6. Serve real files and directories directly
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
 
-    # Everything else falls back to the React SPA index.html
+    # 7. Don't rewrite non-existent static assets or script extensions to SPA (return real 404)
+    RewriteCond %{REQUEST_URI} \.(php|js|css|png|jpg|jpeg|gif|ico|svg|webp|woff|woff2|ttf|map|json|txt|xml)$ [NC]
+    RewriteCond %{REQUEST_URI} !^/\.well-known/ [NC]
+    RewriteRule ^ - [R=404,L]
+
+    # 8. Everything else falls back to the React SPA index.html
     RewriteRule ^ index.html [L]
+</IfModule>
+
+# ==============================================================================
+# Security Headers & Information Disclosure Protection
+# ==============================================================================
+<IfModule mod_headers.c>
+    # 1. Force HSTS (HTTP Strict Transport Security - 1 Year)
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+    # 2. Prevent MIME type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+
+    # 3. Prevent Clickjacking
+    Header always set X-Frame-Options "DENY"
+
+    # 4. Strict Referrer Policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # 5. Restrict unnecessary browser features
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+
+    # 6. Content Security Policy (CSP)
+    Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://www.google-analytics.com https://*.google-analytics.com https://images.unsplash.com; connect-src 'self' https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+
+    # 7. Information Disclosure: Strip PHP and server signatures
+    Header unset X-Powered-By
+    Header always unset X-Powered-By
+    Header unset Server
 </IfModule>

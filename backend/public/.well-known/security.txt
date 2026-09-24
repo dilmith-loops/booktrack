@@ -1,0 +1,9 @@
+# Security Policy for Sampath Book Finder (bookfairtracker.com)
+# Reference: RFC 9116
+
+Contact: mailto:security@bookfairtracker.com
+Expires: 2027-09-25T00:00:00.000Z
+Preferred-Languages: en, si, ta
+Canonical: https://bookfairtracker.com/.well-known/security.txt
+Policy: https://bookfairtracker.com/
+Acknowledgments: https://bookfairtracker.com/

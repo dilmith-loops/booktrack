@@ -5,6 +5,14 @@ use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
+// Security hardening: hide PHP version and set core protection headers
+if (function_exists('header_remove')) {
+    header_remove('X-Powered-By');
+}
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+
 // 1. PHP Version Diagnostic Check
 if (version_compare(PHP_VERSION, '8.2.0', '<')) {
     http_response_code(500);
