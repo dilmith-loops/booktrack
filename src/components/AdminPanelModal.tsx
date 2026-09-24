@@ -21,6 +21,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { Stall, BookSpotting, UserProfile, Announcement } from '../types';
+import { apiFetch } from '../utils/api';
 import { SpotsDataTable } from './SpotsDataTable';
 import { StallsDataTable } from './StallsDataTable';
 import { UsersDataTable } from './UsersDataTable';
@@ -88,7 +89,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     if (!effectiveToken) return;
     setIsLoadingUsers(true);
     try {
-      const res = await fetch('/api/users', {
+      const res = await apiFetch('/api/users', {
         headers: { 'X-Admin-Token': effectiveToken }
       });
       const data = await res.json();
@@ -135,7 +136,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
     setIsLoggingIn(true);
     try {
-      const res = await fetch('/api/admin/login', {
+      const res = await apiFetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

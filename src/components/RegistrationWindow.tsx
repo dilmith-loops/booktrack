@@ -18,6 +18,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { UserProfile } from '../types';
+import { apiFetch } from '../utils/api';
 
 interface RegistrationWindowProps {
   isOpen: boolean;
@@ -124,7 +125,7 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
 
     setIsSavingProfile(true);
     try {
-      const res = await fetch('/api/auth/profile', {
+      const res = await apiFetch('/api/auth/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -219,7 +220,7 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
 
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await apiFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -268,7 +269,7 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
 
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -309,7 +310,7 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
 
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/otp-request', {
+      const res = await apiFetch('/api/auth/otp-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier: loginIdentifier.trim() })
@@ -346,7 +347,7 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
 
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/otp-verify', {
+      const res = await apiFetch('/api/auth/otp-verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -387,7 +388,7 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
 
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/forgot-password', {
+      const res = await apiFetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: forgotEmail.trim() })
@@ -427,7 +428,7 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
 
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/reset-password', {
+      const res = await apiFetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

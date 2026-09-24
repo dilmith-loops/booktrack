@@ -31,6 +31,7 @@ import {
   ArchiveRestore
 } from 'lucide-react';
 import { BookSpotting, Stall } from '../types';
+import { apiFetch } from '../utils/api';
 
 interface SpotsDataTableProps {
   spots: BookSpotting[];
@@ -254,7 +255,7 @@ export const SpotsDataTable: React.FC<SpotsDataTableProps> = ({
         finderHandle: createForm.finderHandle.trim() || '@admin'
       };
 
-      const res = await fetch('/api/spots', {
+      const res = await apiFetch('/api/spots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

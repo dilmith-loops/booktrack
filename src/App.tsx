@@ -12,6 +12,7 @@ import { AdminPanelModal } from './components/AdminPanelModal';
 import { FeatureDemoTour } from './components/FeatureDemoTour';
 import { Stall, BookSpotting, UserProfile, Announcement } from './types';
 import { BMICH_STALLS, INITIAL_SPOTTINGS } from './data/initialData';
+import { apiFetch } from './utils/api';
 import { Search, MapPin, Building2, CreditCard, Check, Sparkles, Phone, ShieldCheck, Tag, Megaphone, Bell, X } from 'lucide-react';
 
 export default function App() {
@@ -116,8 +117,8 @@ export default function App() {
     async function loadData() {
       try {
         const [stallsRes, spotsRes] = await Promise.all([
-          fetch('/api/stalls'),
-          fetch('/api/spots?include_archived=true')
+          apiFetch('/api/stalls'),
+          apiFetch('/api/spots?include_archived=true')
         ]);
         if (stallsRes.ok) {
           const sData = await stallsRes.json();
@@ -159,7 +160,7 @@ export default function App() {
     );
 
     try {
-      await fetch(`/api/spots/${spotId}/upvote`, { method: 'POST' });
+      await apiFetch(`/api/spots/${spotId}/upvote`, { method: 'POST' });
     } catch (err) {
       console.error('Error upvoting spot:', err);
     }
@@ -174,7 +175,7 @@ export default function App() {
     );
 
     try {
-      await fetch(`/api/spots/${spotId}/status`, {
+      await apiFetch(`/api/spots/${spotId}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
@@ -205,7 +206,7 @@ export default function App() {
     );
 
     try {
-      await fetch(`/api/spots/${spotId}/rate`, {
+      await apiFetch(`/api/spots/${spotId}/rate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ score })
@@ -247,7 +248,7 @@ export default function App() {
   const handleDeleteSpot = async (spotId: string, userHandle?: string) => {
     setSpots((prev) => prev.filter((s) => s.id !== spotId));
     try {
-      await fetch(`/api/spots/${spotId}`, {
+      await apiFetch(`/api/spots/${spotId}`, {
         method: 'DELETE',
         headers: getAdminHeaders(),
         body: JSON.stringify({
@@ -274,7 +275,7 @@ export default function App() {
       )
     );
     try {
-      await fetch(`/api/spots/${spotId}/archive`, {
+      await apiFetch(`/api/spots/${spotId}/archive`, {
         method: 'POST',
         headers: getAdminHeaders(),
         body: JSON.stringify({ userHandle: handle })
@@ -298,7 +299,7 @@ export default function App() {
       )
     );
     try {
-      await fetch(`/api/spots/${spotId}/unarchive`, {
+      await apiFetch(`/api/spots/${spotId}/unarchive`, {
         method: 'POST',
         headers: getAdminHeaders()
       });
@@ -321,7 +322,7 @@ export default function App() {
       prev.map((s) => (s.id === spotId ? { ...s, isPinned: !s.isPinned } : s))
     );
     try {
-      await fetch(`/api/spots/${spotId}/pin`, {
+      await apiFetch(`/api/spots/${spotId}/pin`, {
         method: 'POST',
         headers: getAdminHeaders()
       });
@@ -335,7 +336,7 @@ export default function App() {
       prev.map((s) => (s.id === spotId ? { ...s, aiVerified: !s.aiVerified } : s))
     );
     try {
-      await fetch(`/api/spots/${spotId}/ai-verify`, {
+      await apiFetch(`/api/spots/${spotId}/ai-verify`, {
         method: 'POST',
         headers: getAdminHeaders()
       });
@@ -349,7 +350,7 @@ export default function App() {
       prev.map((s) => (s.id === spotId ? { ...s, ...updatedFields } : s))
     );
     try {
-      const res = await fetch(`/api/spots/${spotId}`, {
+      const res = await apiFetch(`/api/spots/${spotId}`, {
         method: 'PUT',
         headers: getAdminHeaders(),
         body: JSON.stringify(updatedFields)
@@ -369,7 +370,7 @@ export default function App() {
   const handleAddStall = async (newStall: Stall) => {
     setStalls((prev) => [newStall, ...prev]);
     try {
-      await fetch('/api/stalls', {
+      await apiFetch('/api/stalls', {
         method: 'POST',
         headers: getAdminHeaders(),
         body: JSON.stringify(newStall)
@@ -384,7 +385,7 @@ export default function App() {
       prev.map((s) => (s.id === stallId ? { ...s, ...updatedFields } : s))
     );
     try {
-      await fetch(`/api/stalls/${stallId}`, {
+      await apiFetch(`/api/stalls/${stallId}`, {
         method: 'PUT',
         headers: getAdminHeaders(),
         body: JSON.stringify(updatedFields)
@@ -397,7 +398,7 @@ export default function App() {
   const handleDeleteStall = async (stallId: string) => {
     setStalls((prev) => prev.filter((s) => s.id !== stallId));
     try {
-      await fetch(`/api/stalls/${stallId}`, {
+      await apiFetch(`/api/stalls/${stallId}`, {
         method: 'DELETE',
         headers: getAdminHeaders()
       });

@@ -1,0 +1,10 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Prevent direct access to sensitive directories and files
+    RewriteRule ^(\.git|\.env|storage|bootstrap/cache|vendor) - [F,L,NC]
+
+    # Forward all web and API traffic into backend/public/
+    RewriteRule ^$ backend/public/ [L]
+    RewriteRule (.*) backend/public/$1 [L]
+</IfModule>

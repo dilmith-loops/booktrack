@@ -6,8 +6,8 @@
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-    # Send API requests directly to Laravel Front Controller
-    RewriteCond %{REQUEST_URI} ^/api(/.*)?$ [NC]
+    # Send API requests directly to Laravel Front Controller (matches /api and /booktrack/api)
+    RewriteCond %{REQUEST_URI} (^|/)api(/.*)?$ [NC]
     RewriteRule ^ index.php [L]
 
     # Serve real files and directories directly

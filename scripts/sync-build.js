@@ -37,7 +37,13 @@ function syncBuild() {
     process.exit(1);
   }
 
-  // 1. Copy dist/assets to backend/public/assets and root public/assets
+  // 1. Clean and copy dist/assets to backend/public/assets and root public/assets
+  if (fs.existsSync(path.join(backendPublicDir, 'assets'))) {
+    fs.rmSync(path.join(backendPublicDir, 'assets'), { recursive: true, force: true });
+  }
+  if (fs.existsSync(path.join(rootPublicDir, 'assets'))) {
+    fs.rmSync(path.join(rootPublicDir, 'assets'), { recursive: true, force: true });
+  }
   copyDirRecursive(path.join(distDir, 'assets'), path.join(backendPublicDir, 'assets'));
   copyDirRecursive(path.join(distDir, 'assets'), path.join(rootPublicDir, 'assets'));
 

@@ -5,6 +5,7 @@ import { fileToDataUrl } from '../utils/imageUtils';
 import { PRESET_STALL_PHOTOS } from '../data/initialData';
 import { checkLocalProfanity } from '../utils/moderationPatterns';
 import { analyzeImageClientSafety } from '../utils/imageSafetyFilter';
+import { apiFetch } from '../utils/api';
 
 interface PostBookSpotModalProps {
   isOpen: boolean;
@@ -142,7 +143,7 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
 
         // 2. Server-side AI Vision & Local GD validation
         try {
-          const modRes = await fetch('/api/moderate-image', {
+          const modRes = await apiFetch('/api/moderate-image', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ image: dataUrl })
@@ -217,7 +218,7 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
           notes: requestNotes.trim() || undefined
         };
 
-        const res = await fetch('/api/spots', {
+        const res = await apiFetch('/api/spots', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -291,7 +292,7 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
         shelfLocationNote: shelfLocationNote.trim() || undefined
       };
 
-      const res = await fetch('/api/spots', {
+      const res = await apiFetch('/api/spots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

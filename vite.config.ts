@@ -5,8 +5,9 @@ import {defineConfig} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
+  const basePath = process.env.VITE_BASE_PATH || (process.env.NODE_ENV === 'production' ? '/booktrack/' : '/');
   return {
-    base: '/',
+    base: basePath,
     plugins: [
       react(),
       tailwindcss(),
@@ -14,15 +15,15 @@ export default defineConfig(() => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'logo.png', 'logo-icon.png', 'logo.jpeg', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
-          id: '/',
+          id: basePath,
           name: 'Sampath Book Finder',
           short_name: 'BookFinder',
           description: 'Official community book finder app for the Colombo Book Fair 2026, sponsored by Sampath Bank PLC.',
           theme_color: '#F37021',
           background_color: '#09090B',
           display: 'standalone',
-          start_url: '/',
-          scope: '/',
+          start_url: basePath,
+          scope: basePath,
           icons: [
             {
               src: '/pwa-192x192.png',

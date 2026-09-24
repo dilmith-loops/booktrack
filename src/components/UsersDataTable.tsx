@@ -26,6 +26,7 @@ import {
   Square
 } from 'lucide-react';
 import { UserProfile } from '../types';
+import { apiFetch } from '../utils/api';
 
 interface UsersDataTableProps {
   users: UserProfile[];
@@ -205,7 +206,7 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
     setIsSubmitting(true);
     try {
       const token = getEffectiveToken();
-      const res = await fetch('/api/users', {
+      const res = await apiFetch('/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -283,7 +284,7 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
     try {
       const token = getEffectiveToken();
       const identifier = editingUser.id || editingUser.handle;
-      const res = await fetch(`/api/users/${identifier}`, {
+      const res = await apiFetch(`/api/users/${identifier}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -323,7 +324,7 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
     try {
       const token = getEffectiveToken();
       const identifier = user.id || user.handle;
-      const res = await fetch(`/api/users/${identifier}`, {
+      const res = await apiFetch(`/api/users/${identifier}`, {
         method: 'DELETE',
         headers: {
           'X-Admin-Token': token
@@ -356,7 +357,7 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
 
     for (const id of Array.from(selectedIds)) {
       try {
-        const res = await fetch(`/api/users/${id}`, {
+        const res = await apiFetch(`/api/users/${id}`, {
           method: 'DELETE',
           headers: { 'X-Admin-Token': token }
         });
@@ -382,7 +383,7 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
     const identifier = user.id || user.handle;
 
     try {
-      const res = await fetch(`/api/users/${identifier}/toggle-cardholder`, {
+      const res = await apiFetch(`/api/users/${identifier}/toggle-cardholder`, {
         method: 'POST',
         headers: { 'X-Admin-Token': token }
       });
