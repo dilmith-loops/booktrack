@@ -38,6 +38,7 @@ interface StallsDataTableProps {
   onAddStall?: (newStall: Stall) => void;
   onToggleHideStall?: (stallId: string) => void;
   onImportStalls?: (stalls: Stall[], mode: 'replace' | 'append') => Promise<void> | void;
+  onRefreshStalls?: () => Promise<void> | void;
 }
 
 type SortField = 'name' | 'hall' | 'stallNumber' | 'category' | 'spotsCount';
@@ -50,14 +51,16 @@ export const StallsDataTable: React.FC<StallsDataTableProps> = ({
   onUpdateStall,
   onAddStall,
   onToggleHideStall,
-  onImportStalls
+  onImportStalls,
+  onRefreshStalls
 }) => {
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterHall, setFilterHall] = useState<string>('all');
+  const [filterLetter, setFilterLetter] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterDiscount, setFilterDiscount] = useState<'all' | 'with_discount' | 'without_discount'>('all');
   const [filterVisibility, setFilterVisibility] = useState<'all' | 'visible' | 'hidden'>('all');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Sorting (Default to stallNumber so stalls are sorted by letters A, B, C, etc.)
   const [sortField, setSortField] = useState<SortField>('stallNumber');
@@ -105,19 +108,18 @@ export const StallsDataTable: React.FC<StallsDataTableProps> = ({
     return map;
   }, [spots]);
 
-  // Unique halls list sorted using Stall number letter (A, B, C, D, H, J, K, etc.)
-  const hallsList = useMemo(() => {
+  // Unique letters list sorted using Stall number letter (A, B, C, D, H, J, K, etc.)
+  const lettersList = useMemo(() => {
     const set = new Set<string>();
     stalls.forEach((s) => {
-      if (s.hall) set.add(s.hall);
+      const letter = (s.stallNumber || '').trim().charAt(0).toUpperCase();
+      if (letter && /^[A-Z]$/.test(letter)) {
+        set.add(letter);
+      }
     });
-    return Array.from(set).sort((a, b) => {
-      const getLetter = (h: string) => {
-        const match = h.match(/\b([A-Z])\b/);
-        return match ? match[1] : h;
-      };
-      return getLetter(a).localeCompare(getLetter(b));
-    });
+    const allCibfLetters = ['A', 'B', 'C', 'D', 'H', 'J', 'K', 'L', 'M', 'P', 'Q', 'R', 'S', 'T'];
+    allCibfLetters.forEach((l) => set.add(l));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [stalls]);
 
   // Unique categories list
@@ -132,9 +134,12 @@ export const StallsDataTable: React.FC<StallsDataTableProps> = ({
   // Filtered Stalls
   const filteredStalls = useMemo(() => {
     return stalls.filter((stall) => {
-      // Hall filter
-      if (filterHall !== 'all' && stall.hall !== filterHall) {
-        return false;
+      // Letter filter (A, B, C, D, H, J, K, etc.)
+      if (filterLetter !== 'all') {
+        const letter = (stall.stallNumber || '').trim().charAt(0).toUpperCase();
+        if (letter !== filterLetter && !(stall.stallNumber && stall.stallNumber.toUpperCase().startsWith(filterLetter))) {
+          return false;
+        }
       }
 
       // Category filter
@@ -174,7 +179,7 @@ export const StallsDataTable: React.FC<StallsDataTableProps> = ({
 
       return true;
     });
-  }, [stalls, filterHall, filterCategory, filterDiscount, filterVisibility, searchQuery]);
+  }, [stalls, filterLetter, filterCategory, filterDiscount, filterVisibility, searchQuery]);
 
   const hiddenCount = useMemo(() => stalls.filter((s) => s.isHidden).length, [stalls]);
   const visibleCount = stalls.length - hiddenCount;
@@ -375,6 +380,35 @@ export const StallsDataTable: React.FC<StallsDataTableProps> = ({
         </div>
       )}
 
+      {/* Stalls Sync Alert if Cache is partial */}
+      {stalls.length < 100 && (
+        <div className="bg-amber-500/15 border border-amber-500/30 rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-3 text-amber-200 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2 text-xs font-semibold">
+            <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <span>
+              Showing <strong className="text-white">{stalls.length} stalls</strong> from cache. All 170 official CIBF 2026 stalls are ready to sync.
+            </span>
+          </div>
+          {onRefreshStalls && (
+            <button
+              onClick={async () => {
+                setIsRefreshing(true);
+                try {
+                  await onRefreshStalls();
+                  showToast('Synchronized all 170 official stalls from database.');
+                } finally {
+                  setIsRefreshing(false);
+                }
+              }}
+              disabled={isRefreshing}
+              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black text-xs font-black rounded-lg transition-colors flex-shrink-0 cursor-pointer disabled:opacity-50"
+            >
+              {isRefreshing ? 'Syncing...' : 'Sync All 170 Stalls'}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Control Header & Filters */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-4 shadow-sm">
         {/* Top bar: Search & Register Button */}
@@ -388,7 +422,7 @@ export const StallsDataTable: React.FC<StallsDataTableProps> = ({
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Search by publisher name, hall, stall number, or special offer..."
+              placeholder="Search by publisher name, stall number, or special offer..."
               className="w-full pl-10 pr-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs font-semibold text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#F37021]"
             />
             {searchQuery && (
@@ -402,6 +436,27 @@ export const StallsDataTable: React.FC<StallsDataTableProps> = ({
           </div>
 
           <div className="flex items-center gap-2 self-end md:self-auto">
+            {onRefreshStalls && (
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsRefreshing(true);
+                  try {
+                    await onRefreshStalls();
+                    showToast('Stalls synchronized from server.');
+                  } finally {
+                    setIsRefreshing(false);
+                  }
+                }}
+                disabled={isRefreshing}
+                className="px-3.5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+                title="Sync and refresh stalls from server"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-[#F37021] ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Sync ({stalls.length})</span>
+              </button>
+            )}
+
             {onImportStalls && (
               <button
                 type="button"
@@ -432,21 +487,24 @@ export const StallsDataTable: React.FC<StallsDataTableProps> = ({
               <span>Filters:</span>
             </div>
 
-            {/* Hall Filter */}
+            {/* Letter Filter (Stall Number Letters A, B, C, D, H, J, K, etc.) */}
             <select
-              value={filterHall}
+              value={filterLetter}
               onChange={(e) => {
-                setFilterHall(e.target.value);
+                setFilterLetter(e.target.value);
                 setCurrentPage(1);
               }}
               className="px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs font-bold text-zinc-300 focus:outline-none focus:ring-2 focus:ring-[#F37021] cursor-pointer"
             >
-              <option value="all">All Halls ({stalls.length})</option>
-              {hallsList.map((h) => (
-                <option key={h} value={h}>
-                  {h}
-                </option>
-              ))}
+              <option value="all">All Letters ({stalls.length})</option>
+              {lettersList.map((letter) => {
+                const count = stalls.filter((s) => (s.stallNumber || '').trim().toUpperCase().startsWith(letter)).length;
+                return (
+                  <option key={letter} value={letter}>
+                    Letter {letter} {count > 0 ? `(${count})` : ''}
+                  </option>
+                );
+              })}
             </select>
 
             {/* Category Filter */}
@@ -495,11 +553,11 @@ export const StallsDataTable: React.FC<StallsDataTableProps> = ({
             </select>
 
             {/* Reset Filters button if active */}
-            {(searchQuery || filterHall !== 'all' || filterCategory !== 'all' || filterDiscount !== 'all') && (
+            {(searchQuery || filterLetter !== 'all' || filterCategory !== 'all' || filterDiscount !== 'all') && (
               <button
                 onClick={() => {
                   setSearchQuery('');
-                  setFilterHall('all');
+                  setFilterLetter('all');
                   setFilterCategory('all');
                   setFilterDiscount('all');
                   setCurrentPage(1);

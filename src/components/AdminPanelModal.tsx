@@ -53,6 +53,7 @@ interface AdminPanelModalProps {
   onToggleMaintenanceMode?: (enabled: boolean, message?: string) => Promise<void> | void;
   onToggleHideStall?: (stallId: string) => void;
   onImportStalls?: (stalls: Stall[], mode: 'replace' | 'append') => Promise<void> | void;
+  onRefreshStalls?: () => Promise<void> | void;
 }
 
 type AdminTab = 'overview' | 'spots' | 'stalls' | 'announcements' | 'users';
@@ -81,7 +82,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   maintenanceMessage = '',
   onToggleMaintenanceMode,
   onToggleHideStall,
-  onImportStalls
+  onImportStalls,
+  onRefreshStalls
 }) => {
   const [adminToken, setAdminToken] = useState<string>(() => sessionStorage.getItem('sampath_admin_token') || '');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!sessionStorage.getItem('sampath_admin_token'));
@@ -174,6 +176,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   React.useEffect(() => {
     if (isOpen && isAuthenticated) {
       loadServerUsers();
+      if (onRefreshStalls) {
+        onRefreshStalls();
+      }
     }
   }, [isOpen, isAuthenticated, activeTab]);
 
@@ -722,6 +727,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
               onAddStall={onAddStall}
               onToggleHideStall={onToggleHideStall}
               onImportStalls={onImportStalls}
+              onRefreshStalls={onRefreshStalls}
             />
           )}
 

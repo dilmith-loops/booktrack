@@ -234,45 +234,50 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [stallsRes, spotsRes] = await Promise.all([
-          apiFetch('/api/stalls'),
-          apiFetch('/api/spots?include_archived=true')
-        ]);
-        if (stallsRes.ok) {
-          const sData = await stallsRes.json();
-          if (Array.isArray(sData.stalls)) {
-            const legacyDummyIds = new Set([
-              'sarasavi-a', 'gunasena-b', 'vijitha-yapa-a', 'expographic-c',
-              'grantha-s', 'lakehouse-b', 'godage-d', 'dayawansa-d',
-              'sadeepa-b', 'makeen-a', 'jeya-a', 'samayawardhana-c',
-              'buddhist-cultural-e', 'masterguide-e', 'jumpbooks-c'
-            ]);
-            const cleanStalls = sData.stalls.filter((s: Stall) => !legacyDummyIds.has(s.id));
+  const loadData = React.useCallback(async () => {
+    try {
+      const [stallsRes, spotsRes] = await Promise.all([
+        apiFetch('/api/stalls'),
+        apiFetch('/api/spots?include_archived=true')
+      ]);
+      if (stallsRes.ok) {
+        const sData = await stallsRes.json();
+        if (Array.isArray(sData.stalls)) {
+          const legacyDummyIds = new Set([
+            'sarasavi-a', 'gunasena-b', 'vijitha-yapa-a', 'expographic-c',
+            'grantha-s', 'lakehouse-b', 'godage-d', 'dayawansa-d',
+            'sadeepa-b', 'makeen-a', 'jeya-a', 'samayawardhana-c',
+            'buddhist-cultural-e', 'masterguide-e', 'jumpbooks-c'
+          ]);
+          const cleanStalls = sData.stalls.filter((s: Stall) => !legacyDummyIds.has(s.id));
+          if (cleanStalls.length > 0) {
             setStalls(cleanStalls);
             try {
               localStorage.setItem('sampath_bmich_stalls', JSON.stringify(cleanStalls));
             } catch {}
           }
         }
-        if (spotsRes.ok) {
-          const pData = await spotsRes.json();
-          if (Array.isArray(pData.spots)) {
-            const legacyDummySpotIds = new Set([
-              'spot-1', 'spot-2', 'spot-3', 'spot-4', 'spot-5', 'req-1', 'req-2', 'spot-hp-reply'
-            ]);
-            const cleanSpots = pData.spots.filter((s: BookSpotting) => !legacyDummySpotIds.has(s.id));
-            setSpots(cleanSpots);
-          }
-        }
-      } catch (err) {
-        console.warn('Network sync notice:', err);
       }
+      if (spotsRes.ok) {
+        const pData = await spotsRes.json();
+        if (Array.isArray(pData.spots)) {
+          const legacyDummySpotIds = new Set([
+            'spot-1', 'spot-2', 'spot-3', 'spot-4', 'spot-5', 'req-1', 'req-2', 'spot-hp-reply'
+          ]);
+          const cleanSpots = pData.spots.filter((s: BookSpotting) => !legacyDummySpotIds.has(s.id));
+          setSpots(cleanSpots);
+        }
+      }
+    } catch (err) {
+      console.warn('Network sync notice:', err);
     }
-    loadData();
   }, []);
+
+  useEffect(() => {
+    loadData();
+    window.addEventListener('focus', loadData);
+    return () => window.removeEventListener('focus', loadData);
+  }, [loadData]);
 
   const handleSpotAdded = (newSpot: BookSpotting) => {
     setSpots((prev) => [newSpot, ...prev]);
@@ -775,6 +780,7 @@ export default function App() {
           onToggleMaintenanceMode={handleToggleMaintenanceMode}
           onToggleHideStall={handleToggleHideStall}
           onImportStalls={handleImportStalls}
+          onRefreshStalls={loadData}
         />
 
         {/* 4. Interactive Feature Demo Tour */}
