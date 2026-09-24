@@ -18,6 +18,36 @@ export const getApiUrl = (endpoint: string): string => {
   return cleanEndpoint;
 };
 
-export const apiFetch = (url: string, options?: RequestInit): Promise<Response> => {
-  return fetch(getApiUrl(url), options);
+export const apiFetch = async (url: string, options?: RequestInit): Promise<Response> => {
+  const res = await fetch(getApiUrl(url), options);
+
+  // If server returns 403 Forbidden due to account suspension / disabled status
+  if (res.status === 403 && typeof window !== 'undefined') {
+    try {
+      const clone = res.clone();
+      const data = await clone.json();
+      if (
+        data &&
+        (data.isDisabled === true ||
+          (typeof data.error === 'string' &&
+            (data.error.toLowerCase().includes('disabled') ||
+              data.error.toLowerCase().includes('suspended'))))
+      ) {
+        window.dispatchEvent(
+          new CustomEvent('account-disabled', {
+            detail: {
+              message:
+                data.error ||
+                'Your spotter account has been disabled by an administrator. You have been logged out automatically.'
+            }
+          })
+        );
+      }
+    } catch {
+      // Ignore JSON parse errors on unexpected body
+    }
+  }
+
+  return res;
 };
+

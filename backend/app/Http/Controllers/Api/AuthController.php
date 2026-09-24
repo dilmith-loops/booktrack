@@ -435,6 +435,13 @@ class AuthController extends Controller
             $user->password = Hash::make($newPassword);
         }
 
+        if ($user->is_disabled) {
+            return response()->json([
+                'error' => 'Your spotter account has been disabled by an administrator.',
+                'isDisabled' => true
+            ], 403);
+        }
+
         $user->name = $name;
         $user->email = $email;
         $user->phone = $phone;
@@ -445,6 +452,51 @@ class AuthController extends Controller
             'success' => true,
             'user' => $user->toProfileArray(),
             'message' => 'Profile details updated successfully!'
+        ]);
+    }
+
+    /**
+     * Check current spotter account status (Active / Disabled).
+     */
+    public function checkStatus(Request $request): JsonResponse
+    {
+        $id = $request->input('id');
+        $rawHandle = trim((string) $request->input('handle', ''));
+        $email = strtolower(trim((string) $request->input('email', '')));
+
+        $user = null;
+        if (!empty($id)) {
+            $user = User::find($id);
+        }
+        if (!$user && !empty($rawHandle)) {
+            $formattedHandle = str_starts_with($rawHandle, '@') ? $rawHandle : '@' . $rawHandle;
+            $user = User::where('handle', $formattedHandle)->first();
+        }
+        if (!$user && !empty($email)) {
+            $user = User::where('email', $email)->first();
+        }
+
+        if (!$user) {
+            return response()->json([
+                'found' => false,
+                'isDisabled' => true,
+                'error' => 'Account not found.'
+            ], 404);
+        }
+
+        if ($user->is_disabled) {
+            return response()->json([
+                'found' => true,
+                'isDisabled' => true,
+                'user' => $user->toProfileArray(),
+                'error' => 'Your spotter account has been disabled by an administrator.'
+            ], 403);
+        }
+
+        return response()->json([
+            'found' => true,
+            'isDisabled' => false,
+            'user' => $user->toProfileArray()
         ]);
     }
 }

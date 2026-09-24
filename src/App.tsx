@@ -14,7 +14,7 @@ import { Stall, BookSpotting, UserProfile, Announcement } from './types';
 import { BMICH_STALLS } from './data/initialData';
 import { apiFetch } from './utils/api';
 import { useNotifications } from './hooks/useNotifications';
-import { Search, MapPin, Building2, CreditCard, Check, Sparkles, Phone, ShieldCheck, Tag, Megaphone, Bell, X } from 'lucide-react';
+import { Search, MapPin, Building2, CreditCard, Check, Sparkles, Phone, ShieldCheck, Tag, Megaphone, Bell, X, Ban, AlertCircle } from 'lucide-react';
 
 export default function App() {
   const [stalls, setStalls] = useState<Stall[]>(() => {
@@ -73,7 +73,15 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(() => {
     try {
       const saved = localStorage.getItem('sampath_bookfair_user');
-      return saved ? JSON.parse(saved) : null;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.isDisabled) {
+          localStorage.removeItem('sampath_bookfair_user');
+          return null;
+        }
+        return parsed;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -85,11 +93,16 @@ export default function App() {
     try {
       const saved = localStorage.getItem('sampath_bookfair_user');
       // Already logged in - do not show splash screen on page refresh
-      if (saved) return false;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (!parsed?.isDisabled) return false;
+      }
     } catch {}
     return true;
   });
   const [showRegistration, setShowRegistration] = useState(false);
+  const [disabledAccountAlert, setDisabledAccountAlert] = useState<string | null>(null);
+
 
   // System Maintenance Mode State
   const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(() => {
@@ -188,6 +201,74 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleLocationChange);
   }, []);
 
+  // Centralized forced logout for accounts suspended or disabled by an administrator
+  const handleLogoutDueToDisabled = React.useCallback((message?: string) => {
+    try {
+      localStorage.removeItem('sampath_bookfair_user');
+    } catch {}
+    setUserProfile(null);
+    setShowRegistration(true);
+    setShowSplash(false);
+    setDisabledAccountAlert(
+      message ||
+        'Your spotter account has been disabled by an administrator. You have been logged out automatically.'
+    );
+  }, []);
+
+  // Listen to global account-disabled events emitted from any network calls (apiFetch)
+  useEffect(() => {
+    const handleAccountDisabledEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ message?: string }>;
+      handleLogoutDueToDisabled(customEvent.detail?.message);
+    };
+    window.addEventListener('account-disabled', handleAccountDisabledEvent);
+    return () => window.removeEventListener('account-disabled', handleAccountDisabledEvent);
+  }, [handleLogoutDueToDisabled]);
+
+  // Periodic heartbeat: Poll backend every 10 seconds to verify account active status
+  useEffect(() => {
+    if (!userProfile) return;
+
+    let isMounted = true;
+
+    const verifyAccountStatus = async () => {
+      try {
+        const query = new URLSearchParams();
+        if (userProfile.id) query.set('id', String(userProfile.id));
+        if (userProfile.handle) query.set('handle', userProfile.handle);
+        if (userProfile.email) query.set('email', userProfile.email);
+
+        const res = await apiFetch(`/api/auth/status?${query.toString()}`);
+        if (!isMounted) return;
+
+        if (res.status === 403) {
+          const data = await res.json().catch(() => ({}));
+          handleLogoutDueToDisabled(data.error || data.message);
+          return;
+        }
+
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (data.isDisabled) {
+            handleLogoutDueToDisabled(data.error || data.message);
+          }
+        }
+      } catch {
+        // Keep resilient on temporary offline/network hiccup
+      }
+    };
+
+    verifyAccountStatus();
+    const interval = setInterval(verifyAccountStatus, 10000);
+    window.addEventListener('focus', verifyAccountStatus);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', verifyAccountStatus);
+    };
+  }, [userProfile?.id, userProfile?.handle, userProfile?.email, handleLogoutDueToDisabled]);
+
   // Post modal & Lightbox
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [initialBookForModal, setInitialBookForModal] = useState('');
@@ -236,10 +317,27 @@ export default function App() {
 
   const loadData = React.useCallback(async () => {
     try {
+      // Validate current user account status with backend
+      if (userProfile) {
+        try {
+          const query = new URLSearchParams();
+          if (userProfile.id) query.set('id', String(userProfile.id));
+          if (userProfile.handle) query.set('handle', userProfile.handle);
+          if (userProfile.email) query.set('email', userProfile.email);
+          const statusRes = await apiFetch(`/api/auth/status?${query.toString()}`);
+          if (statusRes.status === 403) {
+            const sData = await statusRes.json().catch(() => ({}));
+            handleLogoutDueToDisabled(sData.error || sData.message);
+            return;
+          }
+        } catch {}
+      }
+
       const [stallsRes, spotsRes] = await Promise.all([
         apiFetch('/api/stalls'),
         apiFetch('/api/spots?include_archived=true')
       ]);
+
       if (stallsRes.ok) {
         const sData = await stallsRes.json();
         if (Array.isArray(sData.stalls)) {
@@ -648,26 +746,42 @@ export default function App() {
   };
 
   const handleToggleDisableUser = (userIdOrHandle: string | number) => {
+    const isCurrentUser =
+      userProfile &&
+      (String(userProfile.id) === String(userIdOrHandle) ||
+        userProfile.handle === String(userIdOrHandle) ||
+        userProfile.handle.replace(/^@/, '') === String(userIdOrHandle).replace(/^@/, ''));
+
     setRegisteredUsers((prev) =>
       prev.map((u) => {
-        if (String(u.id) === String(userIdOrHandle) || u.handle === String(userIdOrHandle)) {
+        if (
+          String(u.id) === String(userIdOrHandle) ||
+          u.handle === String(userIdOrHandle) ||
+          u.handle.replace(/^@/, '') === String(userIdOrHandle).replace(/^@/, '')
+        ) {
           return { ...u, isDisabled: !u.isDisabled };
         }
         return u;
       })
     );
-    if (
-      userProfile &&
-      (String(userProfile.id) === String(userIdOrHandle) || userProfile.handle === String(userIdOrHandle))
-    ) {
-      const updated = {
-        ...userProfile,
-        isDisabled: !userProfile.isDisabled
-      };
-      setUserProfile(updated);
-      localStorage.setItem('sampath_bookfair_user', JSON.stringify(updated));
+
+    if (isCurrentUser) {
+      const willBeDisabled = !userProfile.isDisabled;
+      if (willBeDisabled) {
+        handleLogoutDueToDisabled(
+          'Your spotter account was disabled by an administrator. You have been logged out automatically.'
+        );
+      } else {
+        const updated = {
+          ...userProfile,
+          isDisabled: false
+        };
+        setUserProfile(updated);
+        localStorage.setItem('sampath_bookfair_user', JSON.stringify(updated));
+      }
     }
   };
+
 
   // Visible stalls for public visitors (hidden stalls excluded)
   const visibleStalls = stalls.filter((s) => !s.isHidden);
@@ -736,6 +850,29 @@ export default function App() {
           />
         )}
 
+        {/* Account Suspension Banner */}
+        {disabledAccountAlert && (
+          <div className="fixed top-4 left-4 right-4 max-w-md mx-auto z-[150] bg-rose-950/95 border-2 border-rose-500 text-white rounded-2xl p-4 shadow-2xl backdrop-blur-md animate-in slide-in-from-top-4 duration-300">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Ban className="w-5 h-5 text-rose-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-xs font-black uppercase tracking-wider text-rose-300">Account Access Suspended</h4>
+                <p className="text-xs font-medium text-rose-100 mt-0.5 leading-relaxed">{disabledAccountAlert}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDisabledAccountAlert(null)}
+                className="text-rose-400 hover:text-white p-1 rounded-lg hover:bg-rose-900/50 transition-colors"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* 2. Registration & Login Authentication Modal */}
         <RegistrationWindow
           isOpen={!isMaintenanceMode && (showRegistration || (!userProfile && !showSplash))}
@@ -753,6 +890,7 @@ export default function App() {
             setUserProfile(profile);
             setShowRegistration(false);
             setShowSplash(false);
+            setDisabledAccountAlert(null);
             setActiveTab('chat');
             setRegisteredUsers((prev) => [...prev.filter(u => u.handle !== profile.handle), profile]);
           }}
@@ -764,11 +902,15 @@ export default function App() {
             setUserProfile(null);
             setShowRegistration(false);
             setShowSplash(true);
+            setDisabledAccountAlert(null);
           }}
           onStartTour={() => setShowFeatureTour(true)}
           currentProfile={userProfile}
           allowDismiss={!!userProfile}
+          externalAlert={disabledAccountAlert}
+          onClearExternalAlert={() => setDisabledAccountAlert(null)}
         />
+
 
         {/* 3. Admin Control Center Modal */}
         <AdminPanelModal

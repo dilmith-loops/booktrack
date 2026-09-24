@@ -29,6 +29,8 @@ interface RegistrationWindowProps {
   onStartTour?: () => void;
   currentProfile?: UserProfile | null;
   allowDismiss?: boolean;
+  externalAlert?: string | null;
+  onClearExternalAlert?: () => void;
 }
 
 type AuthTab = 'login' | 'register' | 'forgot_password';
@@ -42,7 +44,9 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
   onLogout,
   onStartTour,
   currentProfile,
-  allowDismiss = false
+  allowDismiss = false,
+  externalAlert,
+  onClearExternalAlert
 }) => {
   // If user is already logged in, show their profile view by default
   const [activeTab, setActiveTab] = useState<AuthTab>('login');
@@ -750,6 +754,26 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
             </div>
 
         {/* Status Alerts */}
+        {externalAlert && (
+          <div className="mx-5 mt-4 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 font-bold flex items-start gap-2.5 shadow-xs animate-in fade-in">
+            <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <div className="font-black text-rose-900">Account Access Suspended</div>
+              <div className="text-[11px] text-rose-700 mt-0.5 font-medium leading-relaxed">{externalAlert}</div>
+            </div>
+            {onClearExternalAlert && (
+              <button
+                type="button"
+                onClick={onClearExternalAlert}
+                className="text-rose-400 hover:text-rose-700 p-0.5 cursor-pointer"
+                title="Dismiss"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+
         {errorMsg && (
           <div className="mx-5 mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-bold flex items-start gap-2 animate-in fade-in">
             <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
