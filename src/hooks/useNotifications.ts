@@ -17,7 +17,7 @@ export function useNotifications(spots: BookSpotting[], userProfile: UserProfile
   const [readIds, setReadIds] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem('sampath_read_notifications');
-      return saved ? new Set(JSON.parse(saved)) : new Set<string>();
+      return saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
     } catch {
       return new Set<string>();
     }
@@ -183,7 +183,7 @@ export function useNotifications(spots: BookSpotting[], userProfile: UserProfile
 
   const markAsRead = useCallback((notificationId: string) => {
     setReadIds(prev => {
-      const next = new Set(prev);
+      const next = new Set<string>(prev);
       next.add(notificationId);
       persistReadIds(next);
       return next;
@@ -192,7 +192,7 @@ export function useNotifications(spots: BookSpotting[], userProfile: UserProfile
 
   const markAllAsRead = useCallback(() => {
     setReadIds(prev => {
-      const next = new Set(prev);
+      const next = new Set<string>(prev);
       allNotifications.forEach(n => next.add(n.id));
       persistReadIds(next);
       return next;

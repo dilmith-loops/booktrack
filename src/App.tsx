@@ -490,7 +490,8 @@ export default function App() {
         <RegistrationWindow
           isOpen={showRegistration || (!userProfile && !showSplash)}
           onClose={() => {
-            if (!userProfile) {
+            const hasUser = !!userProfile || !!localStorage.getItem('sampath_bookfair_user');
+            if (!hasUser) {
               // Unauthenticated users cannot bypass to chat; return to splash screen
               setShowRegistration(false);
               setShowSplash(true);
@@ -501,6 +502,7 @@ export default function App() {
           onRegister={(profile) => {
             setUserProfile(profile);
             setShowRegistration(false);
+            setShowSplash(false);
             setActiveTab('chat');
             setRegisteredUsers((prev) => [...prev.filter(u => u.handle !== profile.handle), profile]);
           }}

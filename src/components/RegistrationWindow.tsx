@@ -240,11 +240,10 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
 
       const profile: UserProfile = data.user;
       localStorage.setItem('sampath_bookfair_user', JSON.stringify(profile));
-      onRegister(profile);
       setSuccessMsg(data.message || 'Account created successfully!');
       setTimeout(() => {
-        if (onClose) onClose();
-      }, 700);
+        onRegister(profile);
+      }, 600);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error creating account.');
     } finally {
@@ -286,11 +285,10 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
 
       const profile: UserProfile = data.user;
       localStorage.setItem('sampath_bookfair_user', JSON.stringify(profile));
-      onRegister(profile);
       setSuccessMsg(data.message || 'Welcome back!');
       setTimeout(() => {
-        if (onClose) onClose();
-      }, 700);
+        onRegister(profile);
+      }, 600);
     } catch (err: any) {
       setErrorMsg(err.message || 'Invalid email, phone, or password.');
     } finally {
@@ -363,11 +361,10 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
 
       const profile: UserProfile = data.user;
       localStorage.setItem('sampath_bookfair_user', JSON.stringify(profile));
-      onRegister(profile);
       setSuccessMsg('Logged in successfully!');
       setTimeout(() => {
-        if (onClose) onClose();
-      }, 700);
+        onRegister(profile);
+      }, 600);
     } catch (err: any) {
       setErrorMsg(err.message || 'OTP verification failed.');
     } finally {
@@ -445,11 +442,10 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
 
       const profile: UserProfile = data.user;
       localStorage.setItem('sampath_bookfair_user', JSON.stringify(profile));
-      onRegister(profile);
       setSuccessMsg('Password updated! You are now logged in.');
       setTimeout(() => {
-        if (onClose) onClose();
-      }, 700);
+        onRegister(profile);
+      }, 600);
     } catch (err: any) {
       setErrorMsg(err.message || 'Password reset failed.');
     } finally {
