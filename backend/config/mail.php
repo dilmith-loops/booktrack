@@ -39,7 +39,9 @@ return [
 
         'smtp' => [
             'transport' => 'smtp',
-            'scheme' => (env('MAIL_SCHEME') && env('MAIL_SCHEME') !== 'null') ? env('MAIL_SCHEME') : ((env('MAIL_PORT') == 465 || env('MAIL_ENCRYPTION') === 'ssl') ? 'smtps' : null),
+            'scheme' => ((int) env('MAIL_PORT') === 587) 
+                ? 'smtp' 
+                : ((env('MAIL_SCHEME') && env('MAIL_SCHEME') !== 'null') ? env('MAIL_SCHEME') : ((env('MAIL_PORT') == 465 || env('MAIL_ENCRYPTION') === 'ssl') ? 'smtps' : 'smtp')),
             'url' => env('MAIL_URL'),
             'host' => env('MAIL_HOST', '127.0.0.1'),
             'port' => (int) env('MAIL_PORT', 2525),
