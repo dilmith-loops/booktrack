@@ -12,6 +12,8 @@ export default defineConfig(() => {
       react(),
       tailwindcss(),
       VitePWA({
+        base: basePath,
+        scope: basePath,
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'logo.png', 'logo-icon.png', 'logo.jpeg', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
@@ -26,19 +28,19 @@ export default defineConfig(() => {
           scope: basePath,
           icons: [
             {
-              src: '/pwa-192x192.png',
+              src: `${basePath}pwa-192x192.png`.replace('//', '/'),
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/pwa-512x512.png',
+              src: `${basePath}pwa-512x512.png`.replace('//', '/'),
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/pwa-maskable-512x512.png',
+              src: `${basePath}pwa-maskable-512x512.png`.replace('//', '/'),
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable',
