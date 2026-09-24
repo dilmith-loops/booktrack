@@ -38,7 +38,7 @@ interface UsersDataTableProps {
   onToggleCardholder?: (userId: string | number) => void;
 }
 
-type SortField = 'name' | 'handle' | 'email' | 'registeredAt' | 'isSampathCardholder';
+type SortField = 'name' | 'handle' | 'email' | 'registeredAt' | 'isSampathCardholder' | 'ipAddress';
 type SortOrder = 'asc' | 'desc';
 
 export const UsersDataTable: React.FC<UsersDataTableProps> = ({
@@ -84,7 +84,8 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
     email: '',
     phone: '',
     password: '',
-    isSampathCardholder: false
+    isSampathCardholder: false,
+    ipAddress: ''
   });
   const [showCreatePassword, setShowCreatePassword] = useState(false);
 
@@ -95,7 +96,8 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
     email: '',
     phone: '',
     password: '',
-    isSampathCardholder: false
+    isSampathCardholder: false,
+    ipAddress: ''
   });
   const [showEditPassword, setShowEditPassword] = useState(false);
 
@@ -117,7 +119,8 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
         u.name.toLowerCase().includes(q) ||
         u.handle.toLowerCase().includes(q) ||
         (u.email && u.email.toLowerCase().includes(q)) ||
-        (u.phone && u.phone.toLowerCase().includes(q));
+        (u.phone && u.phone.toLowerCase().includes(q)) ||
+        (u.ipAddress && u.ipAddress.toLowerCase().includes(q));
 
       const matchesCardholder =
         filterCardholder === 'all' ||
@@ -136,6 +139,9 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
       if (sortField === 'registeredAt') {
         valA = Number(a.registeredAt || 0);
         valB = Number(b.registeredAt || 0);
+      } else if (sortField === 'ipAddress') {
+        valA = String(a.ipAddress || '').toLowerCase();
+        valB = String(b.ipAddress || '').toLowerCase();
       } else if (typeof valA === 'string') {
         valA = valA.toLowerCase();
         valB = (valB || '').toLowerCase();
@@ -218,7 +224,8 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
           email: createForm.email.trim(),
           phone: createForm.phone.trim(),
           password: createForm.password || 'SampathUser@2026',
-          isSampathCardholder: createForm.isSampathCardholder
+          isSampathCardholder: createForm.isSampathCardholder,
+          ipAddress: createForm.ipAddress.trim() || undefined
         })
       });
 
@@ -237,7 +244,8 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
         email: '',
         phone: '',
         password: '',
-        isSampathCardholder: false
+        isSampathCardholder: false,
+        ipAddress: ''
       });
       showToast(`Spotter "${data.user.name}" registered successfully in MySQL!`);
       if (onRefresh) onRefresh();
@@ -257,7 +265,8 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
       email: user.email || '',
       phone: user.phone || '',
       password: '',
-      isSampathCardholder: !!user.isSampathCardholder
+      isSampathCardholder: !!user.isSampathCardholder,
+      ipAddress: user.ipAddress || ''
     });
     setFormError(null);
   };
@@ -296,7 +305,8 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
           email: editForm.email.trim(),
           phone: editForm.phone.trim(),
           password: editForm.password || undefined,
-          isSampathCardholder: editForm.isSampathCardholder
+          isSampathCardholder: editForm.isSampathCardholder,
+          ipAddress: editForm.ipAddress.trim() || undefined
         })
       });
 
@@ -495,7 +505,7 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Search by name, handle, email, phone..."
+              placeholder="Search by name, handle, email, phone, IP..."
               className="w-full pl-9 pr-8 py-2 bg-zinc-950 border border-zinc-700 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#F37021]"
             />
             {searchQuery && (
@@ -610,6 +620,13 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                   </div>
                 </th>
 
+                <th className="p-3.5 cursor-pointer hover:text-white" onClick={() => handleSort('ipAddress')}>
+                  <div className="flex items-center gap-1">
+                    <span>IP Address</span>
+                    <ArrowUpDown className="w-3 h-3 text-zinc-500" />
+                  </div>
+                </th>
+
                 <th className="p-3.5 cursor-pointer hover:text-white" onClick={() => handleSort('registeredAt')}>
                   <div className="flex items-center gap-1">
                     <span>Joined Date</span>
@@ -624,7 +641,7 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
             <tbody className="divide-y divide-zinc-800/60 font-medium text-zinc-300">
               {paginatedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-zinc-500">
+                  <td colSpan={7} className="p-8 text-center text-zinc-500">
                     <Users className="w-8 h-8 mx-auto mb-2 opacity-40 text-zinc-400" />
                     <p className="font-bold text-sm">No registered spotters found.</p>
                     <p className="text-xs text-zinc-600 mt-1">
@@ -702,15 +719,29 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                         </button>
                       </td>
 
-                      {/* Joined Date & IP */}
-                      <td className="p-3.5 text-zinc-400 text-[11px]">
-                        <div>{user.registeredAt ? new Date(user.registeredAt).toLocaleDateString() : 'Active Spotter'}</div>
+                      {/* IP Address */}
+                      <td className="p-3.5">
                         {user.ipAddress ? (
-                          <div className="text-[10px] font-mono text-zinc-500 flex items-center gap-1 mt-0.5" title={`Registration IP: ${user.ipAddress}`}>
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/70 inline-block"></span>
+                          <div
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-950 border border-zinc-800 font-mono text-[11px] text-zinc-200 shadow-xs"
+                            title={`Registration IP: ${user.ipAddress}`}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shadow-xs"></span>
                             <span>{user.ipAddress}</span>
                           </div>
-                        ) : null}
+                        ) : (
+                          <span
+                            className="text-zinc-500 font-mono text-xs px-2 py-0.5 rounded bg-zinc-950/60 border border-zinc-800"
+                            title="IP address not recorded"
+                          >
+                            —
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Joined Date */}
+                      <td className="p-3.5 text-zinc-400 text-[11px]">
+                        <div>{user.registeredAt ? new Date(user.registeredAt).toLocaleDateString() : 'Active Spotter'}</div>
                       </td>
 
                       {/* Actions */}
@@ -894,6 +925,17 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                 </div>
               </div>
 
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-300 mb-1">IP Address (Optional)</label>
+                <input
+                  type="text"
+                  value={createForm.ipAddress}
+                  onChange={(e) => setCreateForm({ ...createForm, ipAddress: e.target.value })}
+                  placeholder="Auto-detected if left blank"
+                  className="w-full px-3 py-2 bg-zinc-950 border border-zinc-700 rounded-xl text-xs text-white font-mono focus:outline-none focus:ring-2 focus:ring-[#F37021]"
+                />
+              </div>
+
               <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-xl flex items-center gap-2.5">
                 <input
                   type="checkbox"
@@ -1020,6 +1062,17 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                     {showEditPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-300 mb-1">IP Address</label>
+                <input
+                  type="text"
+                  value={editForm.ipAddress}
+                  onChange={(e) => setEditForm({ ...editForm, ipAddress: e.target.value })}
+                  placeholder="e.g. 203.0.113.195 or leave blank"
+                  className="w-full px-3 py-2 bg-zinc-950 border border-zinc-700 rounded-xl text-xs text-white font-mono focus:outline-none focus:ring-2 focus:ring-[#F37021]"
+                />
               </div>
 
               <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-xl flex items-center gap-2.5">

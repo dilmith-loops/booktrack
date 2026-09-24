@@ -110,7 +110,8 @@ class UserController extends Controller
             }
         }
 
-        $clientIp = AuthController::resolveClientIp($request);
+        $explicitIp = trim((string) $request->input('ipAddress', ''));
+        $clientIp = $explicitIp ?: AuthController::resolveClientIp($request);
 
         $user = User::create([
             'name' => $name,
@@ -191,6 +192,9 @@ class UserController extends Controller
         $user->name = $name;
         $user->email = $email;
         $user->phone = $phone;
+        if ($request->has('ipAddress')) {
+            $user->ip_address = trim((string) $request->input('ipAddress')) ?: null;
+        }
         $user->save();
 
         return response()->json([
