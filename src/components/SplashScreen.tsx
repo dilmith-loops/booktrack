@@ -16,12 +16,11 @@ interface SplashScreenProps {
   onComplete: () => void;
 }
 
-// 4 distinct splash steps:
-// Step 0: First Logo (Image 1)
-// Step 1: Book Scene Atmosphere (Image 2)
-// Step 2: Full Event Poster (Image 3)
-// Step 3: Existing Interactive Splash / Fair Radar (Image 4 / App Ready)
-const STEP_DURATIONS = [2600, 2600, 3200, 0]; // step 3 has interactive radar loader
+// 3 distinct splash steps:
+// Step 0: First Logo (Official App)
+// Step 1: Book Scene Atmosphere (2nd image clean for 1.8s -> loads 3rd image parts in middle with small glow -> moves to next page)
+// Step 2: Interactive Fair Radar Ready (Enter Community Hub)
+const STEP_DURATIONS = [2600, 4800, 0]; // step 2 has interactive radar loader
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState<number>(0);
@@ -29,6 +28,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
   const [radarProgress, setRadarProgress] = useState<number>(0);
   const [fadingOut, setFadingOut] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [step1ShowParts, setStep1ShowParts] = useState<boolean>(false);
 
   const stepRef = useRef(currentStep);
   stepRef.current = currentStep;
@@ -54,9 +54,22 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
     setTimeout(onComplete, 350);
   }, [onComplete]);
 
-  // Story Timer / Progression for Steps 0, 1, 2
+  // Handle Step 1 internal reveal of 3rd image parts after 1.8s
   useEffect(() => {
-    if (currentStep >= 3) return;
+    if (currentStep === 1) {
+      setStep1ShowParts(false);
+      const timer = setTimeout(() => {
+        setStep1ShowParts(true);
+      }, 1700);
+      return () => clearTimeout(timer);
+    } else {
+      setStep1ShowParts(false);
+    }
+  }, [currentStep]);
+
+  // Story Timer / Progression for Steps 0, 1
+  useEffect(() => {
+    if (currentStep >= 2) return;
 
     setStepProgress(0);
     const duration = STEP_DURATIONS[currentStep];
@@ -70,7 +83,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
         const next = prev + stepIncrement;
         if (next >= 100) {
           clearInterval(timer);
-          setCurrentStep((s) => Math.min(s + 1, 3));
+          setCurrentStep((s) => Math.min(s + 1, 2));
           return 100;
         }
         return next;
@@ -80,9 +93,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
     return () => clearInterval(timer);
   }, [currentStep]);
 
-  // Radar loading timer for Step 3 (Existing Interactive Splash)
+  // Radar loading timer for Step 2 (Interactive Splash)
   useEffect(() => {
-    if (currentStep !== 3) return;
+    if (currentStep !== 2) return;
 
     const timer = setInterval(() => {
       setRadarProgress((prev) => {
@@ -98,7 +111,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
   }, [currentStep]);
 
   const goToNextStep = () => {
-    if (currentStep < 3) {
+    if (currentStep < 2) {
       setCurrentStep((prev) => prev + 1);
       setStepProgress(0);
     } else {
@@ -120,7 +133,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
       } ${
         currentStep === 0
           ? 'bg-[#FCF8EF]'
-          : currentStep === 1 || currentStep === 2
+          : currentStep === 1
           ? 'bg-[#FEFAF7]'
           : 'bg-white'
       }`}
@@ -131,13 +144,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
     >
       {/* 1. TOP STORY PROGRESS BARS & CONTROLS */}
       <div className="w-full max-w-md mx-auto px-5 pt-3 z-30 flex flex-col gap-2.5">
-        {/* Segmented Story Bars (4 Steps) */}
+        {/* Segmented Story Bars (3 Steps) */}
         <div className="flex items-center gap-1.5 w-full">
-          {[0, 1, 2, 3].map((stepIdx) => {
+          {[0, 1, 2].map((stepIdx) => {
             let fillPct = 0;
             if (currentStep > stepIdx) fillPct = 100;
             else if (currentStep === stepIdx) {
-              fillPct = stepIdx === 3 ? radarProgress : stepProgress;
+              fillPct = stepIdx === 2 ? radarProgress : stepProgress;
             }
 
             return (
@@ -170,8 +183,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
                 ? 'Official App'
                 : currentStep === 1
                 ? 'BMICH Atmosphere'
-                : currentStep === 2
-                ? 'Book Finder Radar'
                 : 'Fair Radar Ready'}
             </span>
           </div>
@@ -233,9 +244,9 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
           </div>
         </div>
 
-        {/* STEP 1: 2ND ONE (ATMOSPHERIC BOOK SCENE) */}
+        {/* STEP 1: 2ND ONE (ATMOSPHERIC BOOK SCENE + ANIMATED 3RD IMAGE PARTS WITH GLOW) */}
         <div
-          className={`absolute inset-0 flex flex-col items-center justify-between transition-all duration-700 ${
+          className={`absolute inset-0 flex flex-col items-center justify-center p-6 transition-all duration-700 ${
             currentStep === 1
               ? 'opacity-100 scale-100 pointer-events-auto'
               : 'opacity-0 scale-105 pointer-events-none'
@@ -246,80 +257,61 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
             <img
               src={bgImg}
               alt="Cozy books atmosphere at BMICH"
-              className="w-full h-full object-cover object-center transition-transform duration-[3000ms] ease-out scale-105"
+              className="w-full h-full object-cover object-center transition-transform duration-[4800ms] ease-out scale-105"
             />
-            {/* Soft gradient wash for text readability */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-white/40 pointer-events-none" />
+            {/* Soft gradient wash */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-black/15 pointer-events-none" />
           </div>
 
-          {/* Ambient quote / message at bottom */}
-          <div className="relative z-10 w-full px-6 pb-8 mt-auto flex flex-col items-center text-center">
-            <div className="w-full max-w-sm p-4 rounded-2xl bg-white/85 backdrop-blur-md border border-orange-100/80 shadow-lg text-zinc-800">
-              <span className="text-[11px] font-black uppercase tracking-widest text-[#EA580C] block mb-1">
-                Colombo Book Fair 2026
-              </span>
-              <h2 className="text-lg font-black tracking-tight text-zinc-900">
-                Good Books. Brighter Days.
-              </h2>
-              <p className="text-xs text-zinc-600 mt-1 font-medium">
-                Experience Sri Lanka's largest literary celebration at BMICH with live community spotting.
+          {/* Animated 3rd Image Parts in the Middle with Small Glow */}
+          <div
+            className={`relative z-10 max-w-[320px] w-full px-5 py-6 my-auto flex flex-col items-center text-center transition-all duration-700 ease-out ${
+              step1ShowParts
+                ? 'opacity-100 scale-100 translate-y-0'
+                : 'opacity-0 scale-90 translate-y-6 pointer-events-none'
+            }`}
+          >
+            {/* Ambient warm orange aura glow */}
+            <div className="absolute -inset-4 bg-[#F37021]/30 rounded-3xl blur-2xl pointer-events-none animate-pulse" />
+
+            {/* Floating Glass Card with subtle border and small glow */}
+            <div className="relative w-full p-5 sm:p-6 rounded-3xl bg-white/92 backdrop-blur-md border border-orange-200/90 shadow-[0_12px_40px_rgba(243,112,33,0.28)] flex flex-col items-center">
+              {/* Clean Sampath Book Finder Logo */}
+              <div className="w-40 sm:w-48 h-auto flex items-center justify-center">
+                <img
+                  src={cleanLogoImg}
+                  alt="Sampath Book Finder"
+                  className="w-full h-auto object-contain drop-shadow-sm"
+                  onError={(e) => {
+                    e.currentTarget.src = logoImg;
+                  }}
+                />
+              </div>
+
+              {/* Subtitle description */}
+              <p className="mt-3 text-xs sm:text-[13px] font-semibold text-zinc-700 leading-relaxed text-center">
+                Find any book in seconds across 150+ stalls at BMICH. Spot, share, and discover books together.
               </p>
+
+              {/* Location & Date Pill Badges */}
+              <div className="flex items-center justify-center gap-2 mt-4 w-full flex-wrap">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50/90 border border-orange-200/80 shadow-2xs text-[11px] font-bold text-zinc-800">
+                  <MapPin className="w-3.5 h-3.5 text-[#F37021]" />
+                  <span>BMICH, Colombo</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50/90 border border-orange-200/80 shadow-2xs text-[11px] font-bold text-zinc-800">
+                  <Calendar className="w-3.5 h-3.5 text-[#F37021]" />
+                  <span>25 Sep – 04 Oct 2026</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* STEP 2: 3RD ONE (HERO POSTER WITH LOGO & EVENT BADGES) */}
-        <div
-          className={`absolute inset-0 flex flex-col items-center justify-between transition-all duration-700 ${
-            currentStep === 2
-              ? 'opacity-100 scale-100 pointer-events-auto'
-              : 'opacity-0 scale-95 pointer-events-none'
-          }`}
-        >
-          {/* Full bleed poster image */}
-          <div className="absolute inset-0 overflow-hidden">
-            <img
-              src={posterImg}
-              alt="Sampath Book Finder at BMICH"
-              className="w-full h-full object-cover object-center"
-            />
-            {/* Subtle bottom vignette to ensure action button pops */}
-            <div className="absolute inset-0 bg-gradient-to-t from-white/70 via-transparent to-transparent pointer-events-none" />
-          </div>
-
-          {/* Bottom Fast-Action Card */}
-          <div className="relative z-10 w-full px-6 pb-6 mt-auto flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  goToNextStep();
-                }}
-                className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[#F37021] to-[#EA580C] hover:from-[#EA580C] hover:to-[#C2410C] text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-[0_4px_20px_rgba(243,112,33,0.35)] transition-all cursor-pointer active:scale-98"
-              >
-                <span>Explore Fair Radar</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleEnter();
-                }}
-                className="py-3 px-4 rounded-xl bg-white/90 hover:bg-white text-zinc-800 font-bold text-xs border border-zinc-200/90 shadow-sm transition-all cursor-pointer whitespace-nowrap"
-              >
-                Enter App
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* STEP 3: EXISTING SPLASH SCREEN (INTERACTIVE FAIR RADAR) */}
+        {/* STEP 2: INTERACTIVE SPLASH SCREEN (FAIR RADAR READY) */}
         <div
           className={`absolute inset-0 flex flex-col items-center justify-between p-6 transition-all duration-700 overflow-y-auto ${
-            currentStep === 3
+            currentStep === 2
               ? 'opacity-100 scale-100 pointer-events-auto'
               : 'opacity-0 scale-95 pointer-events-none'
           }`}
@@ -420,8 +412,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
         </div>
       </div>
 
-      {/* 3. BOTTOM SLIDE CONTROLS / DOTS BAR (Visible on steps 0-2) */}
-      {currentStep < 3 && (
+      {/* 3. BOTTOM SLIDE CONTROLS / DOTS BAR (Visible on steps 0-1) */}
+      {currentStep < 2 && (
         <div className="w-full max-w-md mx-auto px-6 pb-4 z-30 flex items-center justify-between">
           <button
             type="button"
@@ -442,7 +434,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
 
           {/* Dots Indicator */}
           <div className="flex items-center gap-1.5 bg-white/70 backdrop-blur-md px-3 py-1.5 rounded-full border border-orange-200/50 shadow-xs">
-            {[0, 1, 2, 3].map((idx) => (
+            {[0, 1, 2].map((idx) => (
               <button
                 key={idx}
                 type="button"
