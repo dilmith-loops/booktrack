@@ -403,7 +403,7 @@ export default function App() {
     trackEvent('spot_added', {
       book_name: newSpot.bookName,
       stall_name: newSpot.stallName,
-      is_request: Boolean(newSpot.isRequest),
+      is_request: newSpot.postType === 'request',
     });
     setActiveTab('chat');
   };
