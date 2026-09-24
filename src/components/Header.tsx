@@ -2,7 +2,6 @@ import React from 'react';
 import { User } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 import { UserProfile } from '../types';
-import { G_PAY_IMAGE } from '../assets/gPayImage';
 
 interface HeaderProps {
   spotsCount: number;
@@ -54,13 +53,8 @@ export const Header: React.FC<HeaderProps> = ({
           />
         </button>
 
-        {/* Right: G-Pay Logo & User Icon & Admin Button */}
+        {/* Right: User Icon */}
         <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
-          <img
-            src={G_PAY_IMAGE}
-            alt="G-Pay"
-            className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
-          />
 
           <button
             onClick={onOpenProfile}
