@@ -24,6 +24,7 @@ Route::prefix('auth')->middleware('throttle:20,1')->group(function () {
 Route::prefix('admin')->group(function () {
     Route::post('/login', [AdminController::class, 'login'])->middleware('throttle:5,1');
     Route::post('/verify', [AdminController::class, 'verify']);
+    Route::post('/migrate', [AdminController::class, 'runMigrations']);
 });
 
 // System Settings & Maintenance Mode

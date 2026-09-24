@@ -154,5 +154,30 @@ class AdminController extends Controller
             'updatedAt' => $data['updatedAt'],
         ]);
     }
+
+    /**
+     * Run database migrations safely (Admin protected).
+     */
+    public function runMigrations(Request $request): JsonResponse
+    {
+        $token = $request->header('X-Admin-Token') ?: $request->bearerToken();
+        if (!$token || !self::isValidToken($token)) {
+            return response()->json(['error' => 'Unauthorized. Administrator credentials required.'], 401);
+        }
+
+        try {
+            \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+            $output = \Illuminate\Support\Facades\Artisan::output();
+            return response()->json([
+                'success' => true,
+                'message' => 'Migrations executed successfully.',
+                'output' => $output
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'error' => 'Migration failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
 

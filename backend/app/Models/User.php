@@ -72,7 +72,7 @@ class User extends Authenticatable
             'registeredAt' => $this->created_at ? (int) $this->created_at->getTimestampMs() : (int) round(microtime(true) * 1000),
             'isAdmin' => false,
             'ipAddress' => $this->ip_address ?: '',
-            'isDisabled' => (bool) $this->is_disabled,
+            'isDisabled' => (bool) ($this->is_disabled ?? false),
         ];
     }
 }
