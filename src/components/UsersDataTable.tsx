@@ -27,7 +27,9 @@ import {
   UserCheck,
   UserX,
   Ban,
-  ShieldAlert
+  ShieldAlert,
+  Calendar,
+  Clock
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { apiFetch } from '../utils/api';
@@ -60,6 +62,8 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCardholder, setFilterCardholder] = useState<'all' | 'cardholder' | 'standard'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'disabled'>('all');
+  const [filterJoinedDate, setFilterJoinedDate] = useState<string>('all');
+  const [customJoinedDate, setCustomJoinedDate] = useState<string>('');
 
   // Sorting
   const [sortField, setSortField] = useState<SortField>('registeredAt');
@@ -119,6 +123,32 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
     return adminToken || sessionStorage.getItem('sampath_admin_token') || '';
   };
 
+  // Group distinct registration calendar dates for dropdown filter
+  const availableJoinedDates = useMemo(() => {
+    const map = new Map<string, { label: string; count: number }>();
+    users.forEach((u) => {
+      if (u.registeredAt) {
+        const d = new Date(u.registeredAt);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const key = `${year}-${month}-${day}`;
+        const label = d.toLocaleDateString(undefined, {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+        if (!map.has(key)) {
+          map.set(key, { label, count: 0 });
+        }
+        map.get(key)!.count += 1;
+      }
+    });
+    return Array.from(map.entries())
+      .map(([dateKey, val]) => ({ dateKey, label: val.label, count: val.count }))
+      .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+  }, [users]);
+
   // Filtered & Sorted Users
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
@@ -141,9 +171,59 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
         (filterStatus === 'active' && !u.isDisabled) ||
         (filterStatus === 'disabled' && !!u.isDisabled);
 
-      return matchesSearch && matchesCardholder && matchesStatus;
+      // Joined Date Filter
+      let matchesJoinedDate = true;
+      if (filterJoinedDate !== 'all' || customJoinedDate) {
+        if (!u.registeredAt) {
+          matchesJoinedDate = false;
+        } else {
+          const userDate = new Date(u.registeredAt);
+          const now = new Date();
+
+          if (filterJoinedDate === 'today') {
+            matchesJoinedDate =
+              userDate.getFullYear() === now.getFullYear() &&
+              userDate.getMonth() === now.getMonth() &&
+              userDate.getDate() === now.getDate();
+          } else if (filterJoinedDate === 'yesterday') {
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            matchesJoinedDate =
+              userDate.getFullYear() === yesterday.getFullYear() &&
+              userDate.getMonth() === yesterday.getMonth() &&
+              userDate.getDate() === yesterday.getDate();
+          } else if (filterJoinedDate === 'last7') {
+            const sevenDaysAgo = new Date(now);
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            sevenDaysAgo.setHours(0, 0, 0, 0);
+            matchesJoinedDate = userDate >= sevenDaysAgo;
+          } else if (filterJoinedDate === 'last30') {
+            const thirtyDaysAgo = new Date(now);
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            thirtyDaysAgo.setHours(0, 0, 0, 0);
+            matchesJoinedDate = userDate >= thirtyDaysAgo;
+          } else if (filterJoinedDate === 'custom') {
+            if (customJoinedDate) {
+              const [cYear, cMonth, cDay] = customJoinedDate.split('-').map(Number);
+              matchesJoinedDate =
+                userDate.getFullYear() === cYear &&
+                userDate.getMonth() + 1 === cMonth &&
+                userDate.getDate() === cDay;
+            }
+          } else {
+            // Specific YYYY-MM-DD
+            const year = userDate.getFullYear();
+            const month = String(userDate.getMonth() + 1).padStart(2, '0');
+            const day = String(userDate.getDate()).padStart(2, '0');
+            const userDateKey = `${year}-${month}-${day}`;
+            matchesJoinedDate = userDateKey === filterJoinedDate;
+          }
+        }
+      }
+
+      return matchesSearch && matchesCardholder && matchesStatus && matchesJoinedDate;
     });
-  }, [users, searchQuery, filterCardholder, filterStatus]);
+  }, [users, searchQuery, filterCardholder, filterStatus, filterJoinedDate, customJoinedDate]);
 
   const sortedUsers = useMemo(() => {
     return [...filteredUsers].sort((a, b) => {
@@ -469,7 +549,7 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
       return;
     }
 
-    const headers = ['ID', 'Name', 'Handle', 'Email', 'Phone', 'Account Status', 'Sampath Cardholder', 'Registration IP', 'Registered Date'];
+    const headers = ['ID', 'Name', 'Handle', 'Email', 'Phone', 'Account Status', 'Sampath Cardholder', 'Registration IP', 'Joined Date & Time'];
     const rows = sortedUsers.map((u) => [
       `"${u.id || ''}"`,
       `"${u.name.replace(/"/g, '""')}"`,
@@ -479,7 +559,7 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
       u.isDisabled ? 'Disabled' : 'Active',
       u.isSampathCardholder ? 'Yes' : 'No',
       `"${u.ipAddress || ''}"`,
-      `"${new Date(u.registeredAt || Date.now()).toLocaleString()}"`
+      `"${u.registeredAt ? new Date(u.registeredAt).toLocaleString() : ''}"`
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -618,12 +698,70 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                 setFilterCardholder(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#F37021]"
+              className="bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#F37021] cursor-pointer"
             >
               <option value="all">All Cardholder Types</option>
               <option value="cardholder">Sampath Cardholders Only</option>
               <option value="standard">Standard Spotters Only</option>
             </select>
+          </div>
+
+          {/* Joined Date Filter */}
+          <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+            <Calendar className="w-3.5 h-3.5 text-[#F37021]" />
+            <select
+              value={filterJoinedDate}
+              onChange={(e) => {
+                const val = e.target.value;
+                setFilterJoinedDate(val);
+                if (val !== 'custom') setCustomJoinedDate('');
+                setCurrentPage(1);
+              }}
+              className="bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#F37021] cursor-pointer"
+            >
+              <option value="all">All Joined Dates</option>
+              <option value="today">Joined Today</option>
+              <option value="yesterday">Joined Yesterday</option>
+              <option value="last7">Past 7 Days</option>
+              <option value="last30">Past 30 Days</option>
+              {availableJoinedDates.length > 0 && (
+                <optgroup label="Registered Dates">
+                  {availableJoinedDates.map((item) => (
+                    <option key={item.dateKey} value={item.dateKey}>
+                      Date: {item.label} ({item.count})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              <option value="custom">📅 Custom Date...</option>
+            </select>
+
+            {filterJoinedDate === 'custom' && (
+              <input
+                type="date"
+                value={customJoinedDate}
+                onChange={(e) => {
+                  setCustomJoinedDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-zinc-950 border border-zinc-700 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#F37021]"
+              />
+            )}
+
+            {(filterJoinedDate !== 'all' || customJoinedDate) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterJoinedDate('all');
+                  setCustomJoinedDate('');
+                  setCurrentPage(1);
+                }}
+                className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                title="Reset Date Filter"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -726,9 +864,10 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                   </div>
                 </th>
 
-                <th className="p-3.5 cursor-pointer hover:text-white" onClick={() => handleSort('registeredAt')}>
-                  <div className="flex items-center gap-1">
-                    <span>Joined Date</span>
+                <th className="p-3.5 cursor-pointer hover:text-white whitespace-nowrap" onClick={() => handleSort('registeredAt')}>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3 h-3 text-[#F37021]" />
+                    <span>Joined Date & Time</span>
                     <ArrowUpDown className="w-3 h-3 text-zinc-500" />
                   </div>
                 </th>
@@ -880,9 +1019,30 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                         )}
                       </td>
 
-                      {/* Joined Date */}
-                      <td className="p-3.5 text-zinc-400 text-[11px]">
-                        <div>{user.registeredAt ? new Date(user.registeredAt).toLocaleDateString() : 'Active Spotter'}</div>
+                      {/* Joined Date & Time */}
+                      <td className="p-3.5 text-zinc-300 text-[11px] whitespace-nowrap">
+                        {user.registeredAt ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-bold text-zinc-200">
+                              {new Date(user.registeredAt).toLocaleDateString(undefined, {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                              })}
+                            </span>
+                            <span className="text-[10px] text-zinc-400 font-mono flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5 text-[#F37021]" />
+                              {new Date(user.registeredAt).toLocaleTimeString(undefined, {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true
+                              })}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-zinc-500 italic text-[11px]">Active Spotter</span>
+                        )}
                       </td>
 
                       {/* Actions */}
@@ -1362,8 +1522,9 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-zinc-500 font-bold">Registration Date:</span>
-                <span className="text-zinc-400 font-mono text-[11px]">
+                <span className="text-zinc-500 font-bold">Joined Date & Time:</span>
+                <span className="text-zinc-300 font-mono text-[11px] flex items-center gap-1.5">
+                  <Clock className="w-3 h-3 text-[#F37021]" />
                   {viewingUser.registeredAt ? new Date(viewingUser.registeredAt).toLocaleString() : 'N/A'}
                 </span>
               </div>
