@@ -52,17 +52,23 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Main App Bar - Logo, Notification Bell and User Icon */}
       <div className="px-3 sm:px-4 py-2 flex items-center justify-between gap-3 max-w-2xl mx-auto h-16 sm:h-20">
-        {/* Left: Only Logo */}
+        {/* Left: Logos (Sampath Bank & Book Finder) */}
         <button
           onClick={onReplaySplash}
           id="header-logo-btn"
-          className="flex items-center h-full cursor-pointer transition-opacity hover:opacity-85 focus:outline-none"
+          className="flex items-center gap-1.5 sm:gap-2 h-full cursor-pointer transition-opacity hover:opacity-85 focus:outline-none"
           title="Sampath Book Finder"
         >
           <img
             src={`${import.meta.env.BASE_URL}header-logo.png`}
             alt="Sampath Bank"
-            className="h-6 sm:h-7 w-auto object-contain"
+            className="h-5 sm:h-6 w-auto object-contain"
+          />
+          <div className="h-4 sm:h-5 w-[1px] bg-zinc-200" aria-hidden="true" />
+          <img
+            src={`${import.meta.env.BASE_URL}book-finder-logo.png`}
+            alt="Book Finder"
+            className="h-7 sm:h-8.5 w-auto object-contain"
           />
         </button>
 
