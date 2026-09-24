@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, MapPin, Sparkles, X, Image as ImageIcon, ChevronRight, CheckCircle2, BookOpen } from 'lucide-react';
 import { BookSpotting } from '../types';
+import { trackEvent } from '../utils/analytics';
 
 interface QuickBookLookupProps {
   spots: BookSpotting[];
@@ -31,6 +32,15 @@ export const QuickBookLookup: React.FC<QuickBookLookupProps> = ({
         (spot.author && spot.author.toLowerCase().includes(q))
     );
     setMatchingSpots(filtered);
+
+    const debounceTimer = setTimeout(() => {
+      trackEvent('search', {
+        search_term: query.trim(),
+        results_count: filtered.length,
+      });
+    }, 800);
+
+    return () => clearTimeout(debounceTimer);
   }, [query, spots]);
 
   const trendingSearches = [
@@ -99,7 +109,15 @@ export const QuickBookLookup: React.FC<QuickBookLookupProps> = ({
                 {matchingSpots.map((spot) => (
                   <div
                     key={spot.id}
-                    onClick={() => onSelectSpot(spot)}
+                    onClick={() => {
+                      onSelectSpot(spot);
+                      trackEvent('select_content', {
+                        content_type: 'book_spot',
+                        item_id: String(spot.id),
+                        item_name: spot.bookName,
+                        stall_name: spot.stallName,
+                      });
+                    }}
                     className="p-2.5 sm:p-3 bg-white hover:bg-orange-50/90 border border-zinc-200 hover:border-orange-300 rounded-xl cursor-pointer transition-all flex items-center justify-between gap-3 shadow-sm hover:shadow"
                   >
                     <div className="flex items-start gap-3 min-w-0">
@@ -157,7 +175,10 @@ export const QuickBookLookup: React.FC<QuickBookLookupProps> = ({
                 Are you at BMICH right now and found this book? Help fellow fair-goers by sharing it!
               </p>
               <button
-                onClick={() => onOpenNewSpotWithTitle(query)}
+                onClick={() => {
+                  onOpenNewSpotWithTitle(query);
+                  trackEvent('request_book_sighting', { search_term: query });
+                }}
                 id="post-first-spot-btn"
                 className="mt-3 px-3.5 py-1.5 bg-gradient-to-r from-[#F37021] to-[#EA580C] text-white hover:from-[#EA580C] hover:to-[#C2410C] font-black text-xs rounded-xl shadow-sm hover:shadow transition-all inline-flex items-center gap-1.5 cursor-pointer active:scale-95"
               >
@@ -176,7 +197,10 @@ export const QuickBookLookup: React.FC<QuickBookLookupProps> = ({
           {trendingSearches.map((title) => (
             <button
               key={title}
-              onClick={() => setQuery(title)}
+              onClick={() => {
+                setQuery(title);
+                trackEvent('search', { search_term: title, source: 'trending_badge' });
+              }}
               className="text-[11px] font-bold px-2.5 py-1 bg-zinc-100 hover:bg-[#F37021] hover:text-white text-zinc-700 rounded-full transition-colors cursor-pointer"
             >
               {title}

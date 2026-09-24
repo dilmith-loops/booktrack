@@ -14,6 +14,7 @@ import { Stall, BookSpotting, UserProfile, Announcement } from './types';
 import { BMICH_STALLS } from './data/initialData';
 import { apiFetch } from './utils/api';
 import { useNotifications } from './hooks/useNotifications';
+import { trackPageView, trackEvent } from './utils/analytics';
 import { Search, MapPin, Building2, CreditCard, Check, Sparkles, Phone, ShieldCheck, Tag, Megaphone, Bell, X, Ban, AlertCircle } from 'lucide-react';
 
 export default function App() {
@@ -200,6 +201,16 @@ export default function App() {
     window.addEventListener('popstate', handleLocationChange);
     return () => window.removeEventListener('popstate', handleLocationChange);
   }, []);
+
+  // Track SPA tab and modal view transitions in Google Analytics 4
+  useEffect(() => {
+    const pagePath = showAdminModal ? '/admin' : `/${activeTab}`;
+    const pageTitle = showAdminModal
+      ? 'Sampath Book Finder - Admin Control Center'
+      : `Sampath Book Finder - ${activeTab.toUpperCase()}`;
+    trackPageView(pagePath, pageTitle);
+  }, [activeTab, showAdminModal]);
+
 
   // Centralized forced logout for accounts suspended or disabled by an administrator
   const handleLogoutDueToDisabled = React.useCallback((message?: string) => {
@@ -388,6 +399,12 @@ export default function App() {
         localStorage.setItem('sampath_my_posted_spots', JSON.stringify(arr));
       }
     } catch {}
+
+    trackEvent('spot_added', {
+      book_name: newSpot.bookName,
+      stall_name: newSpot.stallName,
+      is_request: Boolean(newSpot.isRequest),
+    });
     setActiveTab('chat');
   };
 
@@ -893,6 +910,7 @@ export default function App() {
             setDisabledAccountAlert(null);
             setActiveTab('chat');
             setRegisteredUsers((prev) => [...prev.filter(u => u.handle !== profile.handle), profile]);
+            trackEvent('login', { method: 'profile', role: profile.role || 'user' });
           }}
           onProfileUpdate={(profile) => {
             setUserProfile(profile);
@@ -903,6 +921,7 @@ export default function App() {
             setShowRegistration(false);
             setShowSplash(true);
             setDisabledAccountAlert(null);
+            trackEvent('logout');
           }}
           onStartTour={() => setShowFeatureTour(true)}
           currentProfile={userProfile}
