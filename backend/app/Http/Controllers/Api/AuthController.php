@@ -516,7 +516,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Diagnostic endpoint to test SMTP email delivery and view mailer configuration.
+     * Diagnostic endpoint to test SMTP email delivery, try alternate ports/hosts, and run matrix tests.
      */
     public function testMail(Request $request): JsonResponse
     {
@@ -536,7 +536,35 @@ class AuthController extends Controller
             ], 422);
         }
 
+        $mode = $request->query('mode', $request->input('mode', ''));
+        if ($mode === 'diagnose' || $mode === 'matrix') {
+            return $this->runSmtpDiagnostics($to);
+        }
+
+        $requestedHost = $request->input('host', $request->query('host'));
+        $requestedPort = $request->input('port', $request->query('port'));
+        $requestedScheme = $request->input('scheme', $request->query('scheme'));
         $requestedMailer = $request->input('mailer', $request->query('mailer'));
+
+        if (!empty($requestedHost) || !empty($requestedPort)) {
+            $testPort = (int) ($requestedPort ?: 587);
+            $testScheme = $requestedScheme ?: ($testPort === 465 ? 'smtps' : 'smtp');
+            config([
+                'mail.mailers.test_smtp' => [
+                    'transport' => 'smtp',
+                    'host' => $requestedHost ?: config('mail.mailers.smtp.host'),
+                    'port' => $testPort,
+                    'scheme' => $testScheme,
+                    'username' => config('mail.mailers.smtp.username'),
+                    'password' => config('mail.mailers.smtp.password'),
+                    'timeout' => 10,
+                    'verify_peer' => false,
+                    'local_domain' => config('mail.mailers.smtp.local_domain'),
+                ]
+            ]);
+            $requestedMailer = 'test_smtp';
+        }
+
         $testCode = (string) mt_rand(100000, 999999);
         $subject = 'Sampath Book Finder - Delivery Test (' . $testCode . ')';
         $html = self::buildOtpEmailHtml('Tester', $testCode, 'Test Diagnostic Code');
@@ -552,9 +580,9 @@ class AuthController extends Controller
                 'default_mailer' => config('mail.default'),
                 'requested_mailer' => $requestedMailer ?: '(auto)',
                 'mailer_used' => $result['mailer_used'] ?? 'none',
-                'host' => config('mail.mailers.smtp.host'),
-                'port' => config('mail.mailers.smtp.port'),
-                'scheme' => config('mail.mailers.smtp.scheme'),
+                'host' => $requestedHost ?: config('mail.mailers.smtp.host'),
+                'port' => $requestedPort ?: config('mail.mailers.smtp.port'),
+                'scheme' => $requestedScheme ?: config('mail.mailers.smtp.scheme'),
                 'encryption' => env('MAIL_ENCRYPTION'),
                 'verify_peer' => config('mail.mailers.smtp.verify_peer'),
                 'from_address' => config('mail.from.address'),
@@ -566,6 +594,132 @@ class AuthController extends Controller
                 : "Delivery failed: " . ($result['error'] ?? 'Unknown error'),
             'timestamp' => now()->toIso8601String(),
         ], $result['success'] ? 200 : 500);
+    }
+
+    /**
+     * Run detailed matrix diagnostics across available SMTP ports and host addresses.
+     */
+    protected function runSmtpDiagnostics(string $recipientEmail): JsonResponse
+    {
+        $smtpUser = config('mail.mailers.smtp.username');
+        $smtpPass = config('mail.mailers.smtp.password');
+
+        $candidates = [
+            'smtp_587_tls' => [
+                'name' => 'Host rs3-va on Port 587 (TLS/STARTTLS)',
+                'host' => 'rs3-va.serverhostgroup.com',
+                'port' => 587,
+                'scheme' => 'smtp',
+            ],
+            'smtp_465_ssl' => [
+                'name' => 'Host rs3-va on Port 465 (Direct SSL)',
+                'host' => 'rs3-va.serverhostgroup.com',
+                'port' => 465,
+                'scheme' => 'smtps',
+            ],
+            'direct_ip_587' => [
+                'name' => 'Direct IP 15.204.206.213 on Port 587 (TLS)',
+                'host' => '15.204.206.213',
+                'port' => 587,
+                'scheme' => 'smtp',
+            ],
+            'server_sendmail' => [
+                'name' => 'Server Native Sendmail (Exim)',
+                'mailer' => 'sendmail',
+            ],
+        ];
+
+        $results = [];
+        $workingMethod = null;
+
+        $subject = 'Sampath Book Finder - SMTP Matrix Test';
+        $testCode = (string) mt_rand(100000, 999999);
+        $html = self::buildOtpEmailHtml('Tester', $testCode, 'Diagnostic Matrix Code');
+        $plain = "Diagnostic Matrix Test: {$testCode}";
+
+        $dnsIp = gethostbyname('rs3-va.serverhostgroup.com');
+        $serverHostname = gethostname() ?: 'unknown';
+
+        foreach ($candidates as $key => $target) {
+            $t1 = microtime(true);
+            try {
+                if (isset($target['mailer']) && $target['mailer'] === 'sendmail') {
+                    Mail::mailer('sendmail')->html($html, function ($message) use ($recipientEmail, $subject, $plain) {
+                        $message->to($recipientEmail)
+                                ->from(config('mail.from.address'), config('mail.from.name'))
+                                ->subject($subject . ' [via Sendmail]')
+                                ->text($plain);
+                    });
+
+                    $elapsed = round((microtime(true) - $t1) * 1000);
+                    $results[$key] = [
+                        'status' => 'SUCCESS',
+                        'time_ms' => $elapsed,
+                        'message' => 'Email delivered successfully via sendmail',
+                    ];
+                    if (!$workingMethod) $workingMethod = $target;
+                    continue;
+                }
+
+                config([
+                    "mail.mailers.matrix_{$key}" => [
+                        'transport' => 'smtp',
+                        'host' => $target['host'],
+                        'port' => $target['port'],
+                        'scheme' => $target['scheme'],
+                        'username' => $smtpUser,
+                        'password' => $smtpPass,
+                        'timeout' => 8,
+                        'verify_peer' => false,
+                        'local_domain' => config('mail.mailers.smtp.local_domain'),
+                    ]
+                ]);
+
+                Mail::mailer("matrix_{$key}")->html($html, function ($message) use ($recipientEmail, $subject, $plain, $target) {
+                    $message->to($recipientEmail)
+                            ->from(config('mail.from.address'), config('mail.from.name'))
+                            ->subject($subject . " [via {$target['host']}:{$target['port']}]")
+                            ->text($plain);
+                });
+
+                $elapsed = round((microtime(true) - $t1) * 1000);
+                $results[$key] = [
+                    'status' => 'SUCCESS',
+                    'time_ms' => $elapsed,
+                    'message' => "Delivered in {$elapsed}ms!",
+                ];
+                if (!$workingMethod) $workingMethod = $target;
+            } catch (\Throwable $e) {
+                $elapsed = round((microtime(true) - $t1) * 1000);
+                $results[$key] = [
+                    'status' => 'FAILED',
+                    'time_ms' => $elapsed,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        return response()->json([
+            'diagnostic_summary' => [
+                'server_hostname' => $serverHostname,
+                'rs3_va_dns_lookup' => $dnsIp,
+                'recipient' => $recipientEmail,
+            ],
+            'matrix_results' => $results,
+            'recommended_env' => $workingMethod && isset($workingMethod['port']) ? [
+                'MAIL_MAILER' => 'smtp',
+                'MAIL_HOST' => $workingMethod['host'],
+                'MAIL_PORT' => $workingMethod['port'],
+                'MAIL_SCHEME' => $workingMethod['scheme'],
+                'MAIL_ENCRYPTION' => $workingMethod['scheme'] === 'smtps' ? 'ssl' : 'tls',
+                'MAIL_VERIFY_PEER' => 'false',
+            ] : [
+                'MAIL_MAILER' => 'sendmail',
+                'MAIL_FROM_ADDRESS' => config('mail.from.address'),
+                'MAIL_FROM_NAME' => config('mail.from.name'),
+            ],
+            'timestamp' => now()->toIso8601String(),
+        ]);
     }
 
     /**
