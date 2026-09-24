@@ -3,7 +3,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { BMICH_STALLS, INITIAL_SPOTTINGS } from './src/data/initialData';
-import { BookSpotting } from './src/types';
+import { Stall, BookSpotting } from './src/types';
 
 // Prevent Node crash on transient Windows file lock errors during hot reload / file renames
 process.on('uncaughtException', (err: any) => {
@@ -322,9 +322,74 @@ async function startServer() {
     });
   });
 
+  let stallsStore: Stall[] = [...BMICH_STALLS];
+
   // Get all stalls
   app.get('/api/stalls', (req, res) => {
-    res.json({ stalls: BMICH_STALLS });
+    res.json({ stalls: stallsStore });
+  });
+
+  // Batch import stalls
+  app.post('/api/stalls/import', (req, res) => {
+    const { stalls, mode } = req.body;
+    if (!Array.isArray(stalls)) {
+      return res.status(422).json({ error: 'Invalid stalls payload' });
+    }
+    if (mode === 'replace') {
+      stallsStore = stalls;
+    } else {
+      const existingIds = new Set(stallsStore.map(s => s.id));
+      const toAdd = stalls.filter(s => !existingIds.has(s.id));
+      stallsStore = [...stallsStore, ...toAdd];
+    }
+    res.json({
+      success: true,
+      count: stallsStore.length,
+      stalls: stallsStore
+    });
+  });
+
+  // Toggle hide stall
+  app.post('/api/stalls/:id/toggle-hide', (req, res) => {
+    const { id } = req.params;
+    const { isHidden } = req.body;
+    const stall = stallsStore.find(s => s.id === id);
+    if (!stall) {
+      return res.status(404).json({ error: 'Stall not found' });
+    }
+    stall.isHidden = typeof isHidden === 'boolean' ? isHidden : !stall.isHidden;
+    res.json({
+      success: true,
+      stall
+    });
+  });
+
+  // Create stall
+  app.post('/api/stalls', (req, res) => {
+    const newStall: Stall = req.body;
+    if (!newStall.id) {
+      newStall.id = `stall-${Date.now()}`;
+    }
+    stallsStore.push(newStall);
+    res.status(201).json({ success: true, stall: newStall });
+  });
+
+  // Update stall
+  app.put('/api/stalls/:id', (req, res) => {
+    const { id } = req.params;
+    const idx = stallsStore.findIndex(s => s.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ error: 'Stall not found' });
+    }
+    stallsStore[idx] = { ...stallsStore[idx], ...req.body };
+    res.json({ success: true, stall: stallsStore[idx] });
+  });
+
+  // Delete stall
+  app.delete('/api/stalls/:id', (req, res) => {
+    const { id } = req.params;
+    stallsStore = stallsStore.filter(s => s.id !== id);
+    res.json({ success: true });
   });
 
   // Get community spots / chat feed

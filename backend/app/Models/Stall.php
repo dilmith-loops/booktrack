@@ -16,6 +16,11 @@ class Stall extends Model
         'stall_number',
         'special_discount',
         'category',
+        'is_hidden',
+    ];
+
+    protected $casts = [
+        'is_hidden' => 'boolean',
     ];
 
     /**
@@ -30,6 +35,7 @@ class Stall extends Model
             'stallNumber' => $this->stall_number,
             'specialDiscount' => $this->special_discount,
             'category' => $this->category,
+            'isHidden' => (bool) $this->is_hidden,
         ];
     }
 }

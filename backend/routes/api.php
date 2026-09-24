@@ -42,10 +42,13 @@ Route::post('/users/{id}/toggle-cardholder', [UserController::class, 'toggleCard
 // Public Health & Stalls
 Route::get('/health', [HealthController::class, 'index']);
 Route::get('/stalls', [StallController::class, 'index']);
+Route::post('/stalls/import', [StallController::class, 'import']);
 Route::get('/stalls/{id}', [StallController::class, 'show']);
 Route::post('/stalls', [StallController::class, 'store']);
 Route::put('/stalls/{id}', [StallController::class, 'update']);
 Route::delete('/stalls/{id}', [StallController::class, 'destroy']);
+Route::post('/stalls/{id}/toggle-hide', [StallController::class, 'toggleHide']);
+
 
 // Spots & Requests
 Route::get('/spots', [SpotController::class, 'index']);

@@ -17,7 +17,16 @@ import { useNotifications } from './hooks/useNotifications';
 import { Search, MapPin, Building2, CreditCard, Check, Sparkles, Phone, ShieldCheck, Tag, Megaphone, Bell, X } from 'lucide-react';
 
 export default function App() {
-  const [stalls, setStalls] = useState<Stall[]>(BMICH_STALLS);
+  const [stalls, setStalls] = useState<Stall[]>(() => {
+    try {
+      const saved = localStorage.getItem('sampath_bmich_stalls');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return BMICH_STALLS;
+  });
   const [spots, setSpots] = useState<BookSpotting[]>(INITIAL_SPOTTINGS);
   const [selectedHallFilter, setSelectedHallFilter] = useState('All Halls');
   const [activeTab, setActiveTab] = useState<PwaTab>('chat');
@@ -234,6 +243,9 @@ export default function App() {
           const sData = await stallsRes.json();
           if (sData.stalls && sData.stalls.length > 0) {
             setStalls(sData.stalls);
+            try {
+              localStorage.setItem('sampath_bmich_stalls', JSON.stringify(sData.stalls));
+            } catch {}
           }
         }
         if (spotsRes.ok) {
@@ -515,7 +527,13 @@ export default function App() {
   };
 
   const handleDeleteStall = async (stallId: string) => {
-    setStalls((prev) => prev.filter((s) => s.id !== stallId));
+    setStalls((prev) => {
+      const updated = prev.filter((s) => s.id !== stallId);
+      try {
+        localStorage.setItem('sampath_bmich_stalls', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
     try {
       await apiFetch(`/api/stalls/${stallId}`, {
         method: 'DELETE',
@@ -523,6 +541,65 @@ export default function App() {
       });
     } catch (err) {
       console.error('Error deleting stall from database:', err);
+    }
+  };
+
+  const handleToggleHideStall = async (stallId: string) => {
+    let nextHidden = false;
+    setStalls((prev) => {
+      const updated = prev.map((s) => {
+        if (s.id === stallId) {
+          nextHidden = !s.isHidden;
+          return { ...s, isHidden: nextHidden };
+        }
+        return s;
+      });
+      try {
+        localStorage.setItem('sampath_bmich_stalls', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    try {
+      await apiFetch(`/api/stalls/${stallId}/toggle-hide`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAdminHeaders()
+        },
+        body: JSON.stringify({ isHidden: nextHidden })
+      });
+    } catch (err) {
+      console.error('Error toggling stall visibility:', err);
+    }
+  };
+
+  const handleImportStalls = async (importedStalls: Stall[], mode: 'replace' | 'append') => {
+    let updatedStalls: Stall[] = [];
+    if (mode === 'replace') {
+      updatedStalls = importedStalls;
+    } else {
+      const existingIds = new Set(stalls.map((s) => s.id));
+      const toAdd = importedStalls.filter((s) => !existingIds.has(s.id));
+      updatedStalls = [...stalls, ...toAdd];
+    }
+
+    setStalls(updatedStalls);
+    try {
+      localStorage.setItem('sampath_bmich_stalls', JSON.stringify(updatedStalls));
+    } catch {}
+
+    try {
+      await apiFetch('/api/stalls/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAdminHeaders()
+        },
+        body: JSON.stringify({ stalls: importedStalls, mode })
+      });
+    } catch (err) {
+      console.error('Error importing stalls to backend:', err);
     }
   };
 
@@ -552,8 +629,11 @@ export default function App() {
     }
   };
 
+  // Visible stalls for public visitors (hidden stalls excluded)
+  const visibleStalls = stalls.filter((s) => !s.isHidden);
+
   // Filtered stalls for Stalls tab
-  const filteredStalls = stalls.filter((s) => {
+  const filteredStalls = visibleStalls.filter((s) => {
     const matchesHall =
       stallHallFilter === 'All' ||
       s.hall.toLowerCase().includes(stallHallFilter.toLowerCase());
@@ -647,6 +727,8 @@ export default function App() {
           isMaintenanceMode={isMaintenanceMode}
           maintenanceMessage={maintenanceMessage}
           onToggleMaintenanceMode={handleToggleMaintenanceMode}
+          onToggleHideStall={handleToggleHideStall}
+          onImportStalls={handleImportStalls}
         />
 
         {/* 4. Interactive Feature Demo Tour */}
@@ -712,7 +794,7 @@ export default function App() {
               onUpdateStatus={handleUpdateStatus}
               onViewPhotoLightbox={openLightbox}
               userProfile={userProfile}
-              stalls={stalls}
+              stalls={visibleStalls}
               onQuickSpotSubmit={handleSpotAdded}
               onArchiveSpot={handleArchiveSpot}
               onDeleteSpot={handleDeleteSpot}
@@ -903,7 +985,7 @@ export default function App() {
             setIsPostModalOpen(false);
             setReplyingToSpot(null);
           }}
-          stalls={stalls}
+          stalls={visibleStalls}
           existingSpots={spots}
           initialBookTitle={initialBookForModal}
           replyToSpot={replyingToSpot}

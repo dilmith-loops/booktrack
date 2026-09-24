@@ -5,6 +5,7 @@ export interface Stall {
   stallNumber: string;
   specialDiscount?: string;
   category: string;
+  isHidden?: boolean;
 }
 
 export interface BookSpotting {

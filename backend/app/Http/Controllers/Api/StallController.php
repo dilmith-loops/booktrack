@@ -76,6 +76,7 @@ class StallController extends Controller
             'stall_number' => $stallNumber,
             'category' => $category ?: null,
             'special_discount' => $specialDiscount ?: null,
+            'is_hidden' => (bool) $request->input('isHidden', $request->input('is_hidden', false)),
         ]);
 
         return response()->json([
@@ -115,6 +116,9 @@ class StallController extends Controller
         if ($request->has('specialDiscount') || $request->has('special_discount')) {
             $stall->special_discount = trim((string) $request->input('specialDiscount', $request->input('special_discount'))) ?: null;
         }
+        if ($request->has('isHidden') || $request->has('is_hidden')) {
+            $stall->is_hidden = (bool) $request->input('isHidden', $request->input('is_hidden'));
+        }
 
         $stall->save();
 
@@ -122,6 +126,99 @@ class StallController extends Controller
             'success' => true,
             'stall' => $stall,
             'message' => 'Fair stall updated successfully.'
+        ]);
+    }
+
+    /**
+     * Toggle visibility (show / hide) for a stall.
+     */
+    public function toggleHide(Request $request, string $id): JsonResponse
+    {
+        $token = $request->header('X-Admin-Token') ?: $request->bearerToken();
+        if (!AdminController::isValidToken($token)) {
+            return response()->json(['error' => 'Unauthorized. Admin session required.'], 401);
+        }
+
+        $stall = Stall::find($id);
+        if (!$stall) {
+            return response()->json(['error' => 'Stall not found'], 404);
+        }
+
+        if ($request->has('isHidden') || $request->has('is_hidden')) {
+            $stall->is_hidden = (bool) $request->input('isHidden', $request->input('is_hidden'));
+        } else {
+            $stall->is_hidden = !$stall->is_hidden;
+        }
+
+        $stall->save();
+
+        return response()->json([
+            'success' => true,
+            'stall' => $stall,
+            'message' => $stall->is_hidden ? 'Stall is now hidden from public app.' : 'Stall is now visible in public app.'
+        ]);
+    }
+
+    /**
+     * Batch import stalls from CSV.
+     */
+    public function import(Request $request): JsonResponse
+    {
+        $token = $request->header('X-Admin-Token') ?: $request->bearerToken();
+        if (!AdminController::isValidToken($token)) {
+            return response()->json(['error' => 'Unauthorized. Admin session required to import stalls.'], 401);
+        }
+
+        $stallsData = $request->input('stalls');
+        if (!is_array($stallsData) || empty($stallsData)) {
+            return response()->json(['error' => 'Invalid or empty stalls dataset provided.'], 422);
+        }
+
+        $mode = (string) $request->input('mode', 'replace'); // 'replace' or 'append'
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($stallsData, $mode) {
+            if ($mode === 'replace') {
+                Stall::truncate();
+            }
+
+            foreach ($stallsData as $item) {
+                $name = trim((string) ($item['name'] ?? ''));
+                $stallNumber = trim((string) ($item['stallNumber'] ?? $item['stall_number'] ?? ''));
+                if ($name === '' || $stallNumber === '') {
+                    continue;
+                }
+
+                $id = $item['id'] ?? null;
+                if (!$id) {
+                    $slug = Str::slug($name, '-');
+                    $id = $slug ? "stall-{$slug}-" . Str::lower(Str::random(4)) : 'stall-' . (int) round(microtime(true) * 1000);
+                }
+
+                $discount = $item['specialDiscount'] ?? $item['special_discount'] ?? null;
+                $category = $item['category'] ?? 'General Books & Fiction';
+                $isHidden = !empty($item['isHidden'] ?? $item['is_hidden'] ?? false);
+
+                Stall::updateOrCreate(
+                    ['id' => $id],
+                    [
+                        'name' => $name,
+                        'hall' => trim((string) ($item['hall'] ?? 'Hall A')),
+                        'stall_number' => $stallNumber,
+                        'special_discount' => $discount ? trim((string) $discount) : null,
+                        'category' => $category ? trim((string) $category) : 'General Books & Fiction',
+                        'is_hidden' => $isHidden,
+                    ]
+                );
+            }
+        });
+
+        $allStalls = Stall::orderBy('hall')->orderBy('stall_number')->get();
+
+        return response()->json([
+            'success' => true,
+            'count' => count($allStalls),
+            'message' => 'Successfully imported ' . count($stallsData) . ' stalls.',
+            'stalls' => $allStalls
         ]);
     }
 

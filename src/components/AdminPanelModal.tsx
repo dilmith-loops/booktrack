@@ -51,6 +51,8 @@ interface AdminPanelModalProps {
   isMaintenanceMode?: boolean;
   maintenanceMessage?: string;
   onToggleMaintenanceMode?: (enabled: boolean, message?: string) => Promise<void> | void;
+  onToggleHideStall?: (stallId: string) => void;
+  onImportStalls?: (stalls: Stall[], mode: 'replace' | 'append') => Promise<void> | void;
 }
 
 type AdminTab = 'overview' | 'spots' | 'stalls' | 'announcements' | 'users';
@@ -77,7 +79,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onToggleUserCardholder,
   isMaintenanceMode = false,
   maintenanceMessage = '',
-  onToggleMaintenanceMode
+  onToggleMaintenanceMode,
+  onToggleHideStall,
+  onImportStalls
 }) => {
   const [adminToken, setAdminToken] = useState<string>(() => sessionStorage.getItem('sampath_admin_token') || '');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!sessionStorage.getItem('sampath_admin_token'));
@@ -716,6 +720,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
               onDeleteStall={onDeleteStall}
               onUpdateStall={onUpdateStall}
               onAddStall={onAddStall}
+              onToggleHideStall={onToggleHideStall}
+              onImportStalls={onImportStalls}
             />
           )}
 
