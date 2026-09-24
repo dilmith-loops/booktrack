@@ -181,7 +181,7 @@ class StallController extends Controller
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($stallsData, $mode) {
             if ($mode === 'replace') {
-                Stall::truncate();
+                Stall::query()->delete();
             }
 
             foreach ($stallsData as $item) {

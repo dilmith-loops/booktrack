@@ -20,53 +20,39 @@ export const StallDirectoryModal: React.FC<StallDirectoryModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Unique halls sorted using Stall number letter (A, B, C, D, H, J, K, etc.)
+  // Unique sections sorted using Stall number letter (A, B, C, D, H, J, K, etc.)
   const availableHalls = React.useMemo(() => {
-    const map = new Map<string, { key: string; label: string }>();
+    const lettersSet = new Set<string>();
     stalls.forEach((s) => {
       const letter = (s.stallNumber || '').trim().charAt(0).toUpperCase();
-      if (letter && /^[A-Z]$/.test(letter) && !map.has(letter)) {
-        map.set(letter, { key: letter, label: s.hall || `Hall ${letter}` });
+      if (letter && /^[A-Z]$/.test(letter)) {
+        lettersSet.add(letter);
       }
     });
 
-    if (map.size === 0) {
-      return [
-        { key: 'All', label: 'All' },
-        { key: 'A', label: 'Hall A' },
-        { key: 'B', label: 'Hall B' },
-        { key: 'C', label: 'Hall C' },
-        { key: 'D', label: 'Hall D' },
-        { key: 'H', label: 'Hall H' },
-        { key: 'J', label: 'Hall J' },
-        { key: 'K', label: 'Hall K' },
-        { key: 'L', label: 'Pavilion L' },
-        { key: 'M', label: 'Pavilion M' },
-        { key: 'P', label: 'Pavilion P' },
-        { key: 'Q', label: 'Pavilion Q' },
-        { key: 'R', label: 'Pavilion R' },
-        { key: 'S', label: 'Pavilion S' },
-        { key: 'T', label: 'Pavilion T' }
-      ];
-    }
+    const standardLetters = ['A', 'B', 'C', 'D', 'H', 'J', 'K', 'L', 'M', 'P', 'Q', 'R', 'S', 'T'];
+    standardLetters.forEach((l) => lettersSet.add(l));
 
-    const sorted = Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key));
-    return [{ key: 'All', label: 'All' }, ...sorted];
+    const sorted = Array.from(lettersSet).sort((a, b) => a.localeCompare(b));
+    return [
+      { key: 'All', label: 'All' },
+      ...sorted.map((l) => ({ key: l, label: l }))
+    ];
   }, [stalls]);
 
   const filtered = stalls
     .filter((s) => {
       if (s.isHidden) return false;
       const letter = (s.stallNumber || '').trim().charAt(0).toUpperCase();
-      const matchesHall =
+      const matchesLetter =
         selectedHall === 'All' ||
         letter === selectedHall ||
-        (s.hall && s.hall.toLowerCase().includes(selectedHall.toLowerCase()));
+        (s.stallNumber && s.stallNumber.toUpperCase().startsWith(selectedHall));
       const matchesSearch =
         s.name.toLowerCase().includes(search.toLowerCase()) ||
         s.category.toLowerCase().includes(search.toLowerCase()) ||
         s.stallNumber.toLowerCase().includes(search.toLowerCase());
-      return matchesHall && matchesSearch;
+      return matchesLetter && matchesSearch;
     })
     .sort((a, b) =>
       (a.stallNumber || '').localeCompare(b.stallNumber || '', undefined, {

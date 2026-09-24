@@ -3,6 +3,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { Stall, BookSpotting } from './src/types';
+import { BMICH_STALLS } from './src/data/initialData';
 
 // Prevent Node crash on transient Windows file lock errors during hot reload / file renames
 process.on('uncaughtException', (err: any) => {
@@ -321,7 +322,7 @@ async function startServer() {
     });
   });
 
-  let stallsStore: Stall[] = [];
+  let stallsStore: Stall[] = [...BMICH_STALLS];
 
   // Get all stalls
   app.get('/api/stalls', (req, res) => {

@@ -11,6 +11,7 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { FeatureDemoTour } from './components/FeatureDemoTour';
 import { Stall, BookSpotting, UserProfile, Announcement } from './types';
+import { BMICH_STALLS } from './data/initialData';
 import { apiFetch } from './utils/api';
 import { useNotifications } from './hooks/useNotifications';
 import { Search, MapPin, Building2, CreditCard, Check, Sparkles, Phone, ShieldCheck, Tag, Megaphone, Bell, X } from 'lucide-react';
@@ -29,14 +30,13 @@ export default function App() {
         ]);
         if (Array.isArray(parsed)) {
           const cleaned = parsed.filter((s: Stall) => !legacyDummyIds.has(s.id));
-          if (cleaned.length !== parsed.length) {
-            localStorage.setItem('sampath_bmich_stalls', JSON.stringify(cleaned));
+          if (cleaned.length >= 100) {
+            return cleaned;
           }
-          return cleaned;
         }
       }
     } catch {}
-    return [];
+    return BMICH_STALLS;
   });
   const [spots, setSpots] = useState<BookSpotting[]>([]);
   const [selectedHallFilter, setSelectedHallFilter] = useState('All Halls');
@@ -645,42 +645,26 @@ export default function App() {
   // Visible stalls for public visitors (hidden stalls excluded)
   const visibleStalls = stalls.filter((s) => !s.isHidden);
 
-  // Available halls/sections sorted by Stall Number letter (letters A, B, C, D, H, J, K, etc.)
+  // Available stall sections sorted by Stall Number letter (letters A, B, C, D, H, J, K, etc.)
   const availableHalls = useMemo(() => {
-    const map = new Map<string, { key: string; label: string }>();
+    const lettersSet = new Set<string>();
 
     visibleStalls.forEach((s) => {
       const letter = (s.stallNumber || '').trim().charAt(0).toUpperCase();
-      if (letter && /^[A-Z]$/.test(letter) && !map.has(letter)) {
-        map.set(letter, {
-          key: letter,
-          label: s.hall || `Hall ${letter}`
-        });
+      if (letter && /^[A-Z]$/.test(letter)) {
+        lettersSet.add(letter);
       }
     });
 
-    if (map.size === 0) {
-      return [
-        { key: 'All', label: 'All' },
-        { key: 'A', label: 'Hall A' },
-        { key: 'B', label: 'Hall B' },
-        { key: 'C', label: 'Hall C' },
-        { key: 'D', label: 'Hall D' },
-        { key: 'H', label: 'Hall H' },
-        { key: 'J', label: 'Hall J' },
-        { key: 'K', label: 'Hall K' },
-        { key: 'L', label: 'Pavilion L' },
-        { key: 'M', label: 'Pavilion M' },
-        { key: 'P', label: 'Pavilion P' },
-        { key: 'Q', label: 'Pavilion Q' },
-        { key: 'R', label: 'Pavilion R' },
-        { key: 'S', label: 'Pavilion S' },
-        { key: 'T', label: 'Pavilion T' }
-      ];
-    }
+    // Ensure all standard CIBF 2026 fair letters are present (A, B, C, D, H, J, K, etc.)
+    const standardLetters = ['A', 'B', 'C', 'D', 'H', 'J', 'K', 'L', 'M', 'P', 'Q', 'R', 'S', 'T'];
+    standardLetters.forEach((l) => lettersSet.add(l));
 
-    const sortedLetters = Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key));
-    return [{ key: 'All', label: 'All' }, ...sortedLetters];
+    const sortedLetters = Array.from(lettersSet).sort((a, b) => a.localeCompare(b));
+    return [
+      { key: 'All', label: 'All' },
+      ...sortedLetters.map((l) => ({ key: l, label: l }))
+    ];
   }, [visibleStalls]);
 
   // Filtered stalls sorted naturally by Stall Number (letters A, K, etc.)
@@ -688,16 +672,16 @@ export default function App() {
     return visibleStalls
       .filter((s) => {
         const letter = (s.stallNumber || '').trim().charAt(0).toUpperCase();
-        const matchesHall =
+        const matchesLetter =
           stallHallFilter === 'All' ||
           letter === stallHallFilter ||
-          (s.hall && s.hall.toLowerCase().includes(stallHallFilter.toLowerCase()));
+          (s.stallNumber && s.stallNumber.toUpperCase().startsWith(stallHallFilter));
         const matchesSearch =
           !stallSearch ||
           s.name.toLowerCase().includes(stallSearch.toLowerCase()) ||
           (s.category && s.category.toLowerCase().includes(stallSearch.toLowerCase())) ||
           (s.stallNumber && s.stallNumber.toLowerCase().includes(stallSearch.toLowerCase()));
-        return matchesHall && matchesSearch;
+        return matchesLetter && matchesSearch;
       })
       .sort((a, b) =>
         (a.stallNumber || '').localeCompare(b.stallNumber || '', undefined, {
