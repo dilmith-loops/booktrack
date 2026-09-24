@@ -9,7 +9,9 @@ import {
   User,
   ArrowRight,
   BookOpen,
-  MapPin
+  MapPin,
+  Megaphone,
+  Sparkles
 } from 'lucide-react';
 import { AppNotification, UserProfile } from '../types';
 
@@ -18,7 +20,7 @@ interface NotificationBellProps {
   unreadCount: number;
   onMarkAsRead: (id: string) => void;
   onMarkAllAsRead: () => void;
-  onSelectNotification: (spotId: string) => void;
+  onSelectNotification: (spotId?: string) => void;
   onOpenProfile: () => void;
   userProfile: UserProfile | null;
 }
@@ -33,7 +35,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   userProfile
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'reply' | 'mention'>('all');
+  const [filter, setFilter] = useState<'all' | 'reply' | 'mention' | 'updates'>('all');
   const modalRef = useRef<HTMLDivElement>(null);
 
   // Close on Escape key
@@ -49,11 +51,15 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
   const filteredNotifications = notifications.filter(n => {
     if (filter === 'all') return true;
-    return n.type === filter;
+    if (filter === 'reply') return n.type === 'reply' || n.type === 'match';
+    if (filter === 'mention') return n.type === 'mention';
+    if (filter === 'updates') return n.type === 'announcement' || n.type === 'system';
+    return true;
   });
 
-  const replyCount = notifications.filter(n => n.type === 'reply').length;
+  const replyCount = notifications.filter(n => n.type === 'reply' || n.type === 'match').length;
   const mentionCount = notifications.filter(n => n.type === 'mention').length;
+  const updatesCount = notifications.filter(n => n.type === 'announcement' || n.type === 'system').length;
 
   const handleItemClick = (n: AppNotification) => {
     onMarkAsRead(n.id);
@@ -93,7 +99,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] text-zinc-500 font-medium">Replies & mentions from chat</p>
+                <p className="text-[10px] text-zinc-500 font-medium">Fair alerts, replies & book spottings</p>
               </div>
             </div>
 
@@ -150,7 +156,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
               }`}
             >
               <MessageSquareQuote className="w-3 h-3 text-orange-400" />
-              <span>Replies</span>
+              <span>Replies & Spottings</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
                 filter === 'reply' ? 'bg-orange-700 text-white' : 'bg-zinc-100 text-zinc-600'
               }`}>
@@ -175,6 +181,24 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 {mentionCount}
               </span>
             </button>
+
+            <button
+              onClick={() => setFilter('updates')}
+              id="notif-filter-updates"
+              className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                filter === 'updates'
+                  ? 'bg-purple-700 text-white shadow-xs'
+                  : 'bg-white text-zinc-600 hover:bg-zinc-200/80 border border-zinc-200/60'
+              }`}
+            >
+              <Megaphone className="w-3 h-3 text-purple-400" />
+              <span>Announcements</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                filter === 'updates' ? 'bg-purple-900 text-white' : 'bg-zinc-100 text-zinc-600'
+              }`}>
+                {updatesCount}
+              </span>
+            </button>
           </div>
 
           {/* Notifications Scroll List */}
@@ -189,8 +213,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                     {filter === 'all'
                       ? 'No notifications yet'
                       : filter === 'reply'
-                      ? 'No replies yet'
-                      : 'No mentions yet'}
+                      ? 'No replies or book matches yet'
+                      : filter === 'mention'
+                      ? 'No mentions yet'
+                      : 'No announcements yet'}
                   </h4>
                   <p className="text-xs text-zinc-500 mt-1 max-w-xs mx-auto">
                     {userProfile
@@ -215,6 +241,43 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             ) : (
               filteredNotifications.map((n) => {
                 const isReply = n.type === 'reply';
+                const isMatch = n.type === 'match';
+                const isMention = n.type === 'mention';
+                const isAnnouncement = n.type === 'announcement';
+                const isSystem = n.type === 'system';
+
+                let iconNode = <Bell className="w-4 h-4" />;
+                let iconBg = 'bg-gradient-to-tr from-[#EA580C] to-[#F37021]';
+                let tagLabel = 'Update';
+                let tagClass = 'bg-zinc-100 text-zinc-800';
+
+                if (isReply) {
+                  iconNode = <MessageSquareQuote className="w-4 h-4" />;
+                  iconBg = 'bg-gradient-to-tr from-[#EA580C] to-[#F37021]';
+                  tagLabel = 'Reply';
+                  tagClass = 'bg-orange-100 text-orange-800';
+                } else if (isMatch) {
+                  iconNode = <BookOpen className="w-4 h-4" />;
+                  iconBg = 'bg-gradient-to-tr from-emerald-600 to-teal-600';
+                  tagLabel = 'Book Spotted';
+                  tagClass = 'bg-emerald-100 text-emerald-800';
+                } else if (isMention) {
+                  iconNode = <AtSign className="w-4 h-4" />;
+                  iconBg = 'bg-gradient-to-tr from-blue-600 to-indigo-600';
+                  tagLabel = 'Mention';
+                  tagClass = 'bg-blue-100 text-blue-800';
+                } else if (isAnnouncement) {
+                  iconNode = <Megaphone className="w-4 h-4" />;
+                  iconBg = 'bg-gradient-to-tr from-purple-600 to-amber-600';
+                  tagLabel = 'Fair Alert';
+                  tagClass = 'bg-purple-100 text-purple-900';
+                } else if (isSystem) {
+                  iconNode = <Sparkles className="w-4 h-4" />;
+                  iconBg = 'bg-gradient-to-tr from-amber-500 to-orange-500';
+                  tagLabel = 'Official';
+                  tagClass = 'bg-amber-100 text-amber-900';
+                }
+
                 return (
                   <div
                     key={n.id}
@@ -229,17 +292,9 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                     <div className="flex items-start gap-2.5">
                       {/* Icon */}
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white shadow-xs ${
-                          isReply
-                            ? 'bg-gradient-to-tr from-[#EA580C] to-[#F37021]'
-                            : 'bg-gradient-to-tr from-blue-600 to-indigo-600'
-                        }`}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white shadow-xs ${iconBg}`}
                       >
-                        {isReply ? (
-                          <MessageSquareQuote className="w-4 h-4" />
-                        ) : (
-                          <AtSign className="w-4 h-4" />
-                        )}
+                        {iconNode}
                       </div>
 
                       {/* Content */}
@@ -247,13 +302,9 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                         <div className="flex items-center justify-between gap-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span
-                              className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-md ${
-                                isReply
-                                  ? 'bg-orange-100 text-orange-800'
-                                  : 'bg-blue-100 text-blue-800'
-                              }`}
+                              className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-md ${tagClass}`}
                             >
-                              {isReply ? 'Reply' : 'Mention'}
+                              {tagLabel}
                             </span>
                             <span className="text-xs font-bold text-zinc-900 truncate">
                               {n.senderName}
@@ -275,11 +326,18 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                           </div>
                         </div>
 
-                        {/* Book reference tag */}
-                        <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-zinc-800 bg-white/90 px-2 py-0.5 rounded-lg border border-zinc-200/70 inline-flex max-w-full">
-                          <BookOpen className="w-3 h-3 text-[#F37021] flex-shrink-0" />
-                          <span className="truncate">{n.bookName}</span>
+                        {/* Title header */}
+                        <div className="mt-0.5 text-xs font-black text-zinc-800">
+                          {n.title}
                         </div>
+
+                        {/* Book reference tag */}
+                        {n.bookName && (
+                          <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-zinc-800 bg-white/90 px-2 py-0.5 rounded-lg border border-zinc-200/70 inline-flex max-w-full">
+                            <BookOpen className="w-3 h-3 text-[#F37021] flex-shrink-0" />
+                            <span className="truncate">{n.bookName}</span>
+                          </div>
+                        )}
 
                         {/* Location badge if available */}
                         {n.stallName && (
@@ -297,12 +355,14 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                         </p>
 
                         {/* Bottom action hint */}
-                        <div className="mt-1.5 flex items-center justify-between text-[10px] text-orange-600 font-bold">
-                          <span className="inline-flex items-center gap-1 hover:underline">
-                            View in Chat Feed
-                            <ArrowRight className="w-3 h-3" />
-                          </span>
-                        </div>
+                        {n.spotId && (
+                          <div className="mt-1.5 flex items-center justify-between text-[10px] text-orange-600 font-bold">
+                            <span className="inline-flex items-center gap-1 hover:underline">
+                              View spot in Chat Feed
+                              <ArrowRight className="w-3 h-3" />
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

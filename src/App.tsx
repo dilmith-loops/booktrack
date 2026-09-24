@@ -292,14 +292,17 @@ export default function App() {
     unreadCount,
     markAsRead,
     markAllAsRead
-  } = useNotifications(spots, userProfile);
+  } = useNotifications(spots, userProfile, announcements);
 
-  const handleSelectNotification = (spotId: string) => {
+  const handleSelectNotification = (spotId?: string) => {
     setActiveTab('chat');
-    setHighlightedSpotId(spotId);
-    setTimeout(() => {
-      setHighlightedSpotId(null);
-    }, 4500);
+    setSelectedHallFilter('all');
+    if (spotId) {
+      setHighlightedSpotId(spotId);
+      setTimeout(() => {
+        setHighlightedSpotId(null);
+      }, 4500);
+    }
   };
 
   const [lightboxState, setLightboxState] = useState<{

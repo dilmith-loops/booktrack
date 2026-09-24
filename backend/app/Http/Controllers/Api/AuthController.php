@@ -108,28 +108,31 @@ class AuthController extends Controller
             'password' => Hash::make($password),
         ]);
 
+        $mailResult = ['success' => false];
         if (!empty($user->email)) {
-            try {
-                Mail::raw(
-                    "Hello {$user->name},\n\n" .
-                    "Welcome to Sampath Book Finder!\n\n" .
-                    "Your account has been registered successfully with email: {$user->email}\n" .
-                    "Handle: {$user->handle}\n\n" .
-                    "You can now explore live book spotters, track stall deals, and post book requests.\n\n" .
-                    "Regards,\nSampath Book Finder Team",
-                    function ($message) use ($user) {
-                        $message->to($user->email)
-                                ->subject('Welcome to Sampath Book Finder!');
-                    }
-                );
-            } catch (\Throwable $e) {
-                Log::error('Failed to send welcome email: ' . $e->getMessage());
-            }
+            $welcomeHtml = self::buildWelcomeEmailHtml($user->name, $user->email, $user->handle);
+            $welcomePlain = "Hello {$user->name},\n\n" .
+                "Welcome to Sampath Book Finder!\n\n" .
+                "Your account has been registered successfully with email: {$user->email}\n" .
+                "Handle: {$user->handle}\n\n" .
+                "You can now explore live book spotters, track stall deals, and post book requests.\n\n" .
+                "Visit: https://bookfairtracker.com/\n\n" .
+                "Regards,\nSampath Book Finder Team";
+
+            $mailResult = $this->sendBrandedEmail(
+                $user->email,
+                $user->name,
+                'Welcome to Sampath Book Finder!',
+                $welcomeHtml,
+                $welcomePlain
+            );
         }
 
         return response()->json([
             'success' => true,
             'user' => $user->toProfileArray(),
+            'email_sent' => $mailResult['success'],
+            'email_error' => $mailResult['error'] ?? null,
             'message' => 'Registration complete! Welcome to Sampath Book Finder.'
         ], 201);
     }
@@ -219,27 +222,33 @@ class AuthController extends Controller
         $user->otp_expires_at = now()->addMinutes(15);
         $user->save();
 
+        $mailResult = ['success' => false];
         if (!empty($user->email)) {
-            try {
-                Mail::raw(
-                    "Hello {$user->name},\n\n" .
-                    "Your one-time verification code for Sampath Book Finder is: {$otp}\n\n" .
-                    "This code will expire in 15 minutes.\n\n" .
-                    "If you did not request this login code, please disregard this email.\n\n" .
-                    "Regards,\nSampath Book Finder Team",
-                    function ($message) use ($user) {
-                        $message->to($user->email)
-                                ->subject('Your Verification Code - Sampath Book Finder');
-                    }
-                );
-            } catch (\Throwable $e) {
-                Log::error('Failed to send OTP email: ' . $e->getMessage());
-            }
+            $otpHtml = self::buildOtpEmailHtml($user->name, $otp, 'One-Time Login Code');
+            $otpPlain = "Hello {$user->name},\n\n" .
+                "Your one-time verification code for Sampath Book Finder is: {$otp}\n\n" .
+                "This code will expire in 15 minutes.\n\n" .
+                "If you did not request this login code, please disregard this email.\n\n" .
+                "Regards,\nSampath Book Finder Team";
+
+            $mailResult = $this->sendBrandedEmail(
+                $user->email,
+                $user->name,
+                'Your Verification Code: ' . $otp . ' - Sampath Book Finder',
+                $otpHtml,
+                $otpPlain
+            );
         }
+
+        $message = $mailResult['success']
+            ? 'Verification code sent to your email (' . $user->email . ')'
+            : 'Verification code generated for ' . $user->email;
 
         return response()->json([
             'success' => true,
-            'message' => 'Verification code sent to ' . $user->email,
+            'message' => $message,
+            'email_sent' => $mailResult['success'],
+            'email_error' => $mailResult['error'] ?? null,
             'otp' => $otp // Provided for instant offline & local testing
         ]);
     }
@@ -315,28 +324,34 @@ class AuthController extends Controller
         $user->otp_expires_at = now()->addMinutes(15);
         $user->save();
 
+        $mailResult = ['success' => false];
         if (!empty($user->email)) {
-            try {
-                Mail::raw(
-                    "Hello {$user->name},\n\n" .
-                    "You requested a password reset for your Sampath Book Finder account.\n\n" .
-                    "Your password reset verification code is: {$otp}\n\n" .
-                    "This code will expire in 15 minutes.\n\n" .
-                    "If you did not request this password reset, please secure your account immediately.\n\n" .
-                    "Regards,\nSampath Book Finder Team",
-                    function ($message) use ($user) {
-                        $message->to($user->email)
-                                ->subject('Password Reset Code - Sampath Book Finder');
-                    }
-                );
-            } catch (\Throwable $e) {
-                Log::error('Failed to send password reset email: ' . $e->getMessage());
-            }
+            $resetHtml = self::buildPasswordResetEmailHtml($user->name, $otp);
+            $resetPlain = "Hello {$user->name},\n\n" .
+                "You requested a password reset for your Sampath Book Finder account.\n\n" .
+                "Your password reset verification code is: {$otp}\n\n" .
+                "This code will expire in 15 minutes.\n\n" .
+                "If you did not request this password reset, please secure your account immediately.\n\n" .
+                "Regards,\nSampath Book Finder Team";
+
+            $mailResult = $this->sendBrandedEmail(
+                $user->email,
+                $user->name,
+                'Password Reset Code: ' . $otp . ' - Sampath Book Finder',
+                $resetHtml,
+                $resetPlain
+            );
         }
+
+        $message = $mailResult['success']
+            ? 'Password reset verification code sent to your email (' . $user->email . ')'
+            : 'Password reset verification code generated for ' . $user->email;
 
         return response()->json([
             'success' => true,
-            'message' => 'Password reset verification code sent to ' . $user->email,
+            'message' => $message,
+            'email_sent' => $mailResult['success'],
+            'email_error' => $mailResult['error'] ?? null,
             'otp' => $otp
         ]);
     }
@@ -498,5 +513,215 @@ class AuthController extends Controller
             'isDisabled' => false,
             'user' => $user->toProfileArray()
         ]);
+    }
+
+    /**
+     * Diagnostic endpoint to test SMTP email delivery and view mailer configuration.
+     */
+    public function testMail(Request $request): JsonResponse
+    {
+        $to = trim((string) $request->input('to', $request->query('to', '')));
+        if (empty($to) || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Please provide a valid recipient email via ?to=your@email.com or in the request body.',
+                'current_mail_config' => [
+                    'mailer' => config('mail.default'),
+                    'host' => config('mail.mailers.smtp.host'),
+                    'port' => config('mail.mailers.smtp.port'),
+                    'scheme' => config('mail.mailers.smtp.scheme'),
+                    'username' => config('mail.mailers.smtp.username'),
+                    'from' => config('mail.from'),
+                ]
+            ], 422);
+        }
+
+        $testCode = (string) mt_rand(100000, 999999);
+        $subject = 'Sampath Book Finder - SMTP Delivery Test (' . $testCode . ')';
+        $html = self::buildOtpEmailHtml('Tester', $testCode, 'Test Diagnostic Code');
+        $plain = "Sampath Book Finder Diagnostic Test\nYour test code: {$testCode}\nSent at: " . now()->toIso8601String();
+
+        $result = $this->sendBrandedEmail($to, 'Test Recipient', $subject, $html, $plain);
+
+        return response()->json([
+            'success' => $result['success'],
+            'recipient' => $to,
+            'smtp_diagnostics' => [
+                'mailer' => config('mail.default'),
+                'host' => config('mail.mailers.smtp.host'),
+                'port' => config('mail.mailers.smtp.port'),
+                'scheme' => config('mail.mailers.smtp.scheme'),
+                'encryption' => env('MAIL_ENCRYPTION'),
+                'from_address' => config('mail.from.address'),
+                'from_name' => config('mail.from.name'),
+            ],
+            'mail_result' => $result,
+            'message' => $result['success']
+                ? "Test email delivered successfully to {$to}!"
+                : "SMTP Delivery failed: " . ($result['error'] ?? 'Unknown error'),
+            'timestamp' => now()->toIso8601String(),
+        ], $result['success'] ? 200 : 500);
+    }
+
+    /**
+     * Send a branded HTML email with plain-text fallback.
+     */
+    protected function sendBrandedEmail(string $recipientEmail, string $recipientName, string $subject, string $htmlBody, string $plainTextBody): array
+    {
+        if (empty($recipientEmail) || !filter_var($recipientEmail, FILTER_VALIDATE_EMAIL)) {
+            return ['success' => false, 'error' => 'Invalid recipient email address.'];
+        }
+
+        $fromAddress = config('mail.from.address') ?: env('MAIL_FROM_ADDRESS', 'webmaster@loops.lk');
+        $fromName = config('mail.from.name') ?: env('MAIL_FROM_NAME', 'Sampath Book Finder');
+
+        try {
+            Mail::html($htmlBody, function ($message) use ($recipientEmail, $recipientName, $subject, $plainTextBody, $fromAddress, $fromName) {
+                $message->to($recipientEmail, $recipientName ?: null)
+                        ->from($fromAddress, $fromName)
+                        ->subject($subject)
+                        ->text($plainTextBody);
+            });
+
+            return ['success' => true];
+        } catch (\Throwable $e) {
+            Log::error('SMTP Email dispatch failed to ' . $recipientEmail . ': ' . $e->getMessage(), [
+                'exception' => $e,
+                'recipient' => $recipientEmail,
+                'subject' => $subject,
+            ]);
+
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Generate HTML template for Account Registration Welcome email.
+     */
+    protected static function buildWelcomeEmailHtml(string $name, string $email, string $handle): string
+    {
+        $safeName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+        $safeEmail = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
+        $safeHandle = htmlspecialchars($handle, ENT_QUOTES, 'UTF-8');
+
+        $content = <<<HTML
+<p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #0f172a;">Hello {$safeName},</p>
+<p style="margin: 0 0 16px 0;">Welcome to <strong>Sampath Book Finder</strong>! Your spotter account has been created successfully.</p>
+<div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 20px; margin: 20px 0;">
+  <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700; color: #0f172a;">Your Spotter Profile:</p>
+  <p style="margin: 0 0 4px 0; font-size: 14px; color: #475569;">Email: <strong style="color: #0f172a;">{$safeEmail}</strong></p>
+  <p style="margin: 0; font-size: 14px; color: #475569;">Community Handle: <strong style="color: #f26522;">{$safeHandle}</strong></p>
+</div>
+<p style="margin: 0 0 12px 0; font-weight: 600; color: #0f172a;">Start exploring now:</p>
+<ul style="margin: 0 0 24px 0; padding-left: 20px; color: #475569;">
+  <li style="margin-bottom: 8px;">Explore <strong>live spottings</strong> across Sirimavo Bandaranaike & Main Exhibition Halls.</li>
+  <li style="margin-bottom: 8px;">Filter stalls offering <strong>exclusive Sampath Cardholder discounts</strong>.</li>
+  <li style="margin-bottom: 8px;">Post your book wishlist and receive <strong>instant notifications</strong> when fellow visitors spot your title.</li>
+</ul>
+<div style="text-align: center; margin: 28px 0 16px 0;">
+  <a href="https://bookfairtracker.com/" style="display: inline-block; background-color: #f26522; color: #ffffff; text-decoration: none; padding: 14px 32px; font-weight: 700; border-radius: 10px; font-size: 15px; box-shadow: 0 4px 12px rgba(242,101,34,0.35);">Open Sampath Book Finder &rarr;</a>
+</div>
+HTML;
+
+        return self::wrapInEmailLayout('Welcome to Sampath Book Finder', $content);
+    }
+
+    /**
+     * Generate HTML template for One-Time Login Code email.
+     */
+    protected static function buildOtpEmailHtml(string $name, string $otp, string $purpose = 'One-Time Verification Code'): string
+    {
+        $safeName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+        $safePurpose = htmlspecialchars($purpose, ENT_QUOTES, 'UTF-8');
+        $safeOtp = htmlspecialchars($otp, ENT_QUOTES, 'UTF-8');
+
+        $content = <<<HTML
+<p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #0f172a;">Hello {$safeName},</p>
+<p style="margin: 0 0 16px 0;">Use the one-time verification code below to log into your <strong>Sampath Book Finder</strong> account:</p>
+<div style="background-color: #fff7ed; border: 2px dashed #f97316; border-radius: 12px; padding: 24px 16px; margin: 24px 0; text-align: center;">
+  <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #c2410c; font-weight: 700; display: block; margin-bottom: 8px;">{$safePurpose}</span>
+  <span style="font-size: 38px; font-weight: 800; color: #ea580c; letter-spacing: 12px; font-family: 'Courier New', Courier, monospace; display: block; padding-left: 12px;">{$safeOtp}</span>
+  <span style="font-size: 12px; color: #9a3412; display: block; margin-top: 10px;">Expires in 15 minutes &bull; Do not share this code with anyone</span>
+</div>
+<p style="margin: 0 0 12px 0; color: #64748b; font-size: 13px;">If you did not request this verification code, please ignore this email or reach out to event desk.</p>
+HTML;
+
+        return self::wrapInEmailLayout('Your Verification Code', $content);
+    }
+
+    /**
+     * Generate HTML template for Password Reset email.
+     */
+    protected static function buildPasswordResetEmailHtml(string $name, string $otp): string
+    {
+        $safeName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+        $safeOtp = htmlspecialchars($otp, ENT_QUOTES, 'UTF-8');
+
+        $content = <<<HTML
+<p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #0f172a;">Hello {$safeName},</p>
+<p style="margin: 0 0 16px 0;">We received a request to reset the password for your <strong>Sampath Book Finder</strong> spotter account.</p>
+<div style="background-color: #fff7ed; border: 2px dashed #f97316; border-radius: 12px; padding: 24px 16px; margin: 24px 0; text-align: center;">
+  <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #c2410c; font-weight: 700; display: block; margin-bottom: 8px;">Password Reset Code</span>
+  <span style="font-size: 38px; font-weight: 800; color: #ea580c; letter-spacing: 12px; font-family: 'Courier New', Courier, monospace; display: block; padding-left: 12px;">{$safeOtp}</span>
+  <span style="font-size: 12px; color: #9a3412; display: block; margin-top: 10px;">Expires in 15 minutes &bull; Use this code on the reset password screen</span>
+</div>
+<p style="margin: 0 0 12px 0; color: #64748b; font-size: 13px;">If you did not request a password reset, you can safely ignore this email. Your existing password will remain secure and unchanged.</p>
+HTML;
+
+        return self::wrapInEmailLayout('Reset Your Password', $content);
+    }
+
+    /**
+     * Common responsive email wrapper with Sampath Bank styling.
+     */
+    protected static function wrapInEmailLayout(string $title, string $bodyContent): string
+    {
+        $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
+
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{$safeTitle}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 32px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 560px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;" cellspacing="0" cellpadding="0">
+          <tr>
+            <td style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 26px 32px; text-align: left; border-bottom: 4px solid #f26522;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td>
+                    <span style="display: inline-block; background-color: #f26522; color: #ffffff; font-weight: 800; font-size: 11px; padding: 3px 8px; border-radius: 5px; letter-spacing: 0.8px; text-transform: uppercase;">BMICH 2026</span>
+                    <h1 style="margin: 8px 0 0 0; color: #ffffff; font-size: 20px; font-weight: 700; line-height: 1.2;">Sampath Book Finder</h1>
+                    <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 12px;">Colombo International Book Fair Community Companion</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 32px 32px 24px 32px; color: #334155; font-size: 15px; line-height: 1.6;">
+              {$bodyContent}
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; text-align: center; color: #64748b; font-size: 12px; line-height: 1.5;">
+              <p style="margin: 0 0 6px 0; font-weight: 700; color: #334155;">Sampath Book Finder &bull; Colombo International Book Fair 2026</p>
+              <p style="margin: 0 0 8px 0; color: #64748b;">Powered by Sampath Bank &bull; BMICH Colombo</p>
+              <p style="margin: 0;"><a href="https://bookfairtracker.com/" style="color: #f26522; text-decoration: none; font-weight: 600;">https://bookfairtracker.com</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+HTML;
     }
 }

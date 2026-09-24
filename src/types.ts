@@ -98,13 +98,13 @@ export interface Announcement {
 
 export interface AppNotification {
   id: string;
-  type: 'reply' | 'mention';
+  type: 'reply' | 'mention' | 'announcement' | 'system' | 'match';
   title: string;
   message: string;
-  bookName: string;
+  bookName?: string;
   senderName: string;
   senderHandle?: string;
-  spotId: string;
+  spotId?: string;
   targetRequestId?: string;
   timestamp: number;
   timeAgo?: string;

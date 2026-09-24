@@ -247,10 +247,12 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
 
       const profile: UserProfile = data.user;
       localStorage.setItem('sampath_bookfair_user', JSON.stringify(profile));
-      setSuccessMsg(data.message || 'Account created successfully!');
+      setSuccessMsg(data.email_sent 
+        ? 'Account created! Welcome email sent to your inbox.' 
+        : (data.message || 'Account created successfully!'));
       setTimeout(() => {
         onRegister(profile);
-      }, 600);
+      }, 700);
     } catch (err: any) {
       setErrorMsg(err.message || 'Error creating account.');
     } finally {
@@ -331,7 +333,11 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
         setGeneratedDemoOtp(data.otp);
         setLoginOtp(data.otp);
       }
-      setSuccessMsg(`Verification code generated: ${data.otp || ''}`);
+      if (data.email_sent) {
+        setSuccessMsg(`Verification code sent to your email! (Code: ${data.otp || ''})`);
+      } else {
+        setSuccessMsg(data.message || `Verification code: ${data.otp || ''}`);
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Could not send verification code.');
     } finally {
@@ -407,7 +413,11 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
       if (data.otp) {
         setForgotOtp(data.otp);
       }
-      setSuccessMsg(`Reset code sent! Use code: ${data.otp || ''}`);
+      if (data.email_sent) {
+        setSuccessMsg(`Reset code sent to your email! (Code: ${data.otp || ''})`);
+      } else {
+        setSuccessMsg(data.message || `Reset code: ${data.otp || ''}`);
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Error requesting reset code.');
     } finally {

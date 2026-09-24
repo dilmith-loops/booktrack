@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { BookSpotting, UserProfile, AppNotification } from '../types';
+import { BookSpotting, UserProfile, AppNotification, Announcement } from '../types';
 
 export function formatNotificationTime(timestamp: number): string {
   const diff = Date.now() - timestamp;
+  if (diff < 0) return 'Just now';
   const minutes = Math.floor(diff / 60000);
   if (minutes < 1) return 'Just now';
   if (minutes < 60) return `${minutes}m ago`;
@@ -12,7 +13,11 @@ export function formatNotificationTime(timestamp: number): string {
   return `${days}d ago`;
 }
 
-export function useNotifications(spots: BookSpotting[], userProfile: UserProfile | null) {
+export function useNotifications(
+  spots: BookSpotting[],
+  userProfile: UserProfile | null,
+  announcements: Announcement[] = []
+) {
   // Set of read notification IDs persisted in localStorage
   const [readIds, setReadIds] = useState<Set<string>>(() => {
     try {
@@ -23,13 +28,6 @@ export function useNotifications(spots: BookSpotting[], userProfile: UserProfile
     }
   });
 
-  // Ensure any previously saved test notifications are purged
-  useEffect(() => {
-    try {
-      localStorage.removeItem('sampath_simulated_notifications');
-    } catch {}
-  }, []);
-
   // Persist read IDs
   const persistReadIds = (newSet: Set<string>) => {
     try {
@@ -37,12 +35,14 @@ export function useNotifications(spots: BookSpotting[], userProfile: UserProfile
     } catch {}
   };
 
-  // Derive notifications from actual spots and user profile
+  // Derive notifications from spots, announcements, and user profile
   const realNotifications = useMemo(() => {
     const list: AppNotification[] = [];
 
     // Track user's own spots from localStorage or matching profile
-    let mySpotIds = new Set<string>();
+    const mySpotIds = new Set<string>();
+    const myRequestedBookNames = new Set<string>();
+
     try {
       const savedMySpots = localStorage.getItem('sampath_my_posted_spots');
       if (savedMySpots) {
@@ -53,42 +53,88 @@ export function useNotifications(spots: BookSpotting[], userProfile: UserProfile
       }
     } catch {}
 
-    const userName = userProfile?.name?.trim() || '';
-    const userHandle = userProfile?.handle?.trim() || '';
+    const userName = (userProfile?.name || '').trim();
+    const userHandle = (userProfile?.handle || '').trim();
     const cleanUserHandle = userHandle.replace(/^@/, '').toLowerCase();
     const userFirstName = userName.split(' ')[0]?.toLowerCase() || '';
 
-    // Collect all posts authored by current user
+    // Collect all posts authored by current user & user's requested book titles
     spots.forEach(s => {
+      const sFinderName = (s.finderName || '').toLowerCase();
+      const sFinderHandle = (s.finderHandle || '').replace(/^@/, '').toLowerCase();
+
       const isMine =
         mySpotIds.has(s.id) ||
-        (userName && s.finderName.toLowerCase() === userName.toLowerCase()) ||
-        (cleanUserHandle && s.finderHandle?.toLowerCase().replace(/^@/, '') === cleanUserHandle);
+        (userName !== '' && sFinderName === userName.toLowerCase()) ||
+        (cleanUserHandle !== '' && sFinderHandle === cleanUserHandle);
+
       if (isMine) {
         mySpotIds.add(s.id);
+        if (s.postType === 'request' && s.bookName) {
+          myRequestedBookNames.add(s.bookName.trim().toLowerCase());
+        }
       }
     });
 
-    // Scan spots for replies and mentions
+    // 1. Official Welcome & Fair Guide Notification (Always active for registered users)
+    if (userProfile) {
+      list.push({
+        id: 'notif-system-welcome',
+        type: 'system',
+        title: 'Welcome to Sampath Book Finder! 📚',
+        message: 'Locate 150+ stalls at BMICH, find book discounts with Sampath Cards, and ask fellow fair visitors for any book you need.',
+        bookName: 'BMICH Fair Guide 2026',
+        senderName: 'Sampath Bank',
+        senderHandle: '@sampath_official',
+        timestamp: 1727200000000, // Opening day timestamp
+        timeAgo: 'Fair Guide'
+      });
+    }
+
+    // 2. Broadcast Announcements from Fair Organizers / Admin
+    if (Array.isArray(announcements)) {
+      announcements.forEach(ann => {
+        if (!ann.isActive && !ann.message) return;
+        list.push({
+          id: `notif-ann-${ann.id}`,
+          type: 'announcement',
+          title: `📢 Fair Announcement: ${ann.title || 'Official Broadcast'}`,
+          message: ann.message,
+          senderName: 'BMICH Organizing Committee',
+          senderHandle: '@cibf_official',
+          timestamp: ann.timestamp || Date.now(),
+          timeAgo: formatNotificationTime(ann.timestamp || Date.now())
+        });
+      });
+    }
+
+    // 3. Scan spots for direct replies, book matches, and mentions
     spots.forEach(spot => {
+      const spotFinderName = (spot.finderName || '').toLowerCase();
+      const spotFinderHandle = (spot.finderHandle || '').replace(/^@/, '').toLowerCase();
+
       // Don't notify user about their own actions
       const isAuthor =
         mySpotIds.has(spot.id) ||
-        (userName && spot.finderName.toLowerCase() === userName.toLowerCase()) ||
-        (cleanUserHandle && spot.finderHandle?.toLowerCase().replace(/^@/, '') === cleanUserHandle);
+        (userName !== '' && spotFinderName === userName.toLowerCase()) ||
+        (cleanUserHandle !== '' && spotFinderHandle === cleanUserHandle);
 
       if (isAuthor) return;
 
-      // 1. Check for Reply
-      const isReplyToMySpot = spot.replyToRequestId && mySpotIds.has(spot.replyToRequestId);
-      const isReplyToMyHandle =
+      const spotBookLower = (spot.bookName || '').trim().toLowerCase();
+
+      // Case A: Explicit Reply to a Request
+      const isReplyToMySpot = Boolean(spot.replyToRequestId && mySpotIds.has(spot.replyToRequestId));
+      const isReplyToMyHandle = Boolean(
         cleanUserHandle &&
         spot.taggedRequesterHandle &&
-        spot.taggedRequesterHandle.toLowerCase().replace(/^@/, '') === cleanUserHandle;
-      const isReplyToMyName =
+        spot.taggedRequesterHandle.replace(/^@/, '').toLowerCase() === cleanUserHandle
+      );
+      const isReplyToMyName = Boolean(
         userName &&
         spot.taggedRequesterName &&
-        spot.taggedRequesterName.toLowerCase() === userName.toLowerCase();
+        spot.taggedRequesterName.toLowerCase() === userName.toLowerCase()
+      );
 
       if (isReplyToMySpot || isReplyToMyHandle || isReplyToMyName) {
         const targetReq = spots.find(s => s.id === spot.replyToRequestId);
@@ -97,13 +143,13 @@ export function useNotifications(spots: BookSpotting[], userProfile: UserProfile
         list.push({
           id: `notif-reply-${spot.id}`,
           type: 'reply',
-          title: `${spot.finderName} replied to your request`,
+          title: `${spot.finderName || 'A reader'} replied to your book request`,
           message:
             spot.shelfLocationNote ||
             spot.notes ||
             `Found "${spot.bookName}" at ${spot.stallName} (${spot.hall})`,
           bookName: requestedBookName,
-          senderName: spot.finderName,
+          senderName: spot.finderName || 'Fair Reader',
           senderHandle: spot.finderHandle,
           spotId: spot.id,
           targetRequestId: spot.replyToRequestId,
@@ -112,10 +158,29 @@ export function useNotifications(spots: BookSpotting[], userProfile: UserProfile
           stallName: spot.stallName,
           hall: spot.hall
         });
-        return; // Don't double count as mention
+        return; // Handled as reply, skip mention/match
       }
 
-      // 2. Check for Mention in chat notes or shelf location
+      // Case B: Sighting Alert matching a book the user requested
+      if (spot.postType !== 'request' && spotBookLower && myRequestedBookNames.has(spotBookLower)) {
+        list.push({
+          id: `notif-match-${spot.id}`,
+          type: 'match',
+          title: `Sighting Alert: "${spot.bookName}"`,
+          message: `Spotted at ${spot.stallName} (${spot.hall} • ${spot.stallNumber}). Check shelf location in chat feed!`,
+          bookName: spot.bookName,
+          senderName: spot.finderName || 'Fair Spotter',
+          senderHandle: spot.finderHandle,
+          spotId: spot.id,
+          timestamp: spot.timestamp,
+          timeAgo: formatNotificationTime(spot.timestamp),
+          stallName: spot.stallName,
+          hall: spot.hall
+        });
+        return;
+      }
+
+      // Case C: Check for Mention in chat notes or shelf location
       const textToSearch = `${spot.notes || ''} ${spot.shelfLocationNote || ''} ${spot.bookName || ''}`;
       let hasMention = false;
 
@@ -137,10 +202,10 @@ export function useNotifications(spots: BookSpotting[], userProfile: UserProfile
         list.push({
           id: `notif-mention-${spot.id}`,
           type: 'mention',
-          title: `${spot.finderName} mentioned you in chat`,
+          title: `${spot.finderName || 'Someone'} tagged you in chat`,
           message: spot.notes || spot.shelfLocationNote || `Mentioned you regarding "${spot.bookName}"`,
           bookName: spot.bookName,
-          senderName: spot.finderName,
+          senderName: spot.finderName || 'Fair Visitor',
           senderHandle: spot.finderHandle,
           spotId: spot.id,
           timestamp: spot.timestamp,
@@ -152,18 +217,18 @@ export function useNotifications(spots: BookSpotting[], userProfile: UserProfile
     });
 
     return list;
-  }, [spots, userProfile]);
+  }, [spots, userProfile, announcements]);
 
-  // Deduplicate and prepare real notifications
+  // Deduplicate and sort notifications
   const allNotifications = useMemo(() => {
     const seen = new Set<string>();
     const unique: AppNotification[] = [];
     for (const item of realNotifications) {
-      if (!item.id.startsWith('sim-') && !seen.has(item.id)) {
+      if (!seen.has(item.id)) {
         seen.add(item.id);
         unique.push({
           ...item,
-          timeAgo: formatNotificationTime(item.timestamp),
+          timeAgo: item.timeAgo || formatNotificationTime(item.timestamp),
           isRead: readIds.has(item.id)
         });
       }

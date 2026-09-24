@@ -13,13 +13,14 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('auth')->middleware('throttle:60,1')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/otp-request', [AuthController::class, 'requestOtp'])->middleware('throttle:6,1');
-    Route::post('/otp-verify', [AuthController::class, 'verifyOtp'])->middleware('throttle:10,1');
-    Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:6,1');
-    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:10,1');
+    Route::post('/otp-request', [AuthController::class, 'requestOtp'])->middleware('throttle:15,1');
+    Route::post('/otp-verify', [AuthController::class, 'verifyOtp'])->middleware('throttle:20,1');
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:15,1');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:20,1');
     Route::post('/profile', [AuthController::class, 'updateProfile']);
     Route::get('/status', [AuthController::class, 'checkStatus']);
     Route::post('/status', [AuthController::class, 'checkStatus']);
+    Route::match(['get', 'post'], '/mail-test', [AuthController::class, 'testMail']);
 });
 
 // Admin Authentication Routes
