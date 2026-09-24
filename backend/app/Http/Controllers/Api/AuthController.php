@@ -536,37 +536,42 @@ class AuthController extends Controller
             ], 422);
         }
 
+        $requestedMailer = $request->input('mailer', $request->query('mailer'));
         $testCode = (string) mt_rand(100000, 999999);
-        $subject = 'Sampath Book Finder - SMTP Delivery Test (' . $testCode . ')';
+        $subject = 'Sampath Book Finder - Delivery Test (' . $testCode . ')';
         $html = self::buildOtpEmailHtml('Tester', $testCode, 'Test Diagnostic Code');
         $plain = "Sampath Book Finder Diagnostic Test\nYour test code: {$testCode}\nSent at: " . now()->toIso8601String();
 
-        $result = $this->sendBrandedEmail($to, 'Test Recipient', $subject, $html, $plain);
+        $result = $this->sendBrandedEmail($to, 'Test Recipient', $subject, $html, $plain, $requestedMailer);
 
         return response()->json([
             'success' => $result['success'],
             'recipient' => $to,
+            'mailer_used' => $result['mailer_used'] ?? 'none',
             'smtp_diagnostics' => [
-                'mailer' => config('mail.default'),
+                'default_mailer' => config('mail.default'),
+                'requested_mailer' => $requestedMailer ?: '(auto)',
+                'mailer_used' => $result['mailer_used'] ?? 'none',
                 'host' => config('mail.mailers.smtp.host'),
                 'port' => config('mail.mailers.smtp.port'),
                 'scheme' => config('mail.mailers.smtp.scheme'),
                 'encryption' => env('MAIL_ENCRYPTION'),
+                'verify_peer' => config('mail.mailers.smtp.verify_peer'),
                 'from_address' => config('mail.from.address'),
                 'from_name' => config('mail.from.name'),
             ],
             'mail_result' => $result,
             'message' => $result['success']
-                ? "Test email delivered successfully to {$to}!"
-                : "SMTP Delivery failed: " . ($result['error'] ?? 'Unknown error'),
+                ? "Test email delivered successfully to {$to} via " . ($result['mailer_used'] ?? 'mailer') . "!"
+                : "Delivery failed: " . ($result['error'] ?? 'Unknown error'),
             'timestamp' => now()->toIso8601String(),
         ], $result['success'] ? 200 : 500);
     }
 
     /**
-     * Send a branded HTML email with plain-text fallback.
+     * Send a branded HTML email with plain-text fallback, with automatic sendmail fallback.
      */
-    protected function sendBrandedEmail(string $recipientEmail, string $recipientName, string $subject, string $htmlBody, string $plainTextBody): array
+    protected function sendBrandedEmail(string $recipientEmail, string $recipientName, string $subject, string $htmlBody, string $plainTextBody, ?string $preferredMailer = null): array
     {
         if (empty($recipientEmail) || !filter_var($recipientEmail, FILTER_VALIDATE_EMAIL)) {
             return ['success' => false, 'error' => 'Invalid recipient email address.'];
@@ -575,23 +580,44 @@ class AuthController extends Controller
         $fromAddress = config('mail.from.address') ?: env('MAIL_FROM_ADDRESS', 'webmaster@loops.lk');
         $fromName = config('mail.from.name') ?: env('MAIL_FROM_NAME', 'Sampath Book Finder');
 
+        $primaryMailer = $preferredMailer ?: config('mail.default', 'smtp');
+
+        // 1. Attempt dispatch using primary mailer (e.g. SMTP)
         try {
-            Mail::html($htmlBody, function ($message) use ($recipientEmail, $recipientName, $subject, $plainTextBody, $fromAddress, $fromName) {
+            Mail::mailer($primaryMailer)->html($htmlBody, function ($message) use ($recipientEmail, $recipientName, $subject, $plainTextBody, $fromAddress, $fromName) {
                 $message->to($recipientEmail, $recipientName ?: null)
                         ->from($fromAddress, $fromName)
                         ->subject($subject)
                         ->text($plainTextBody);
             });
 
-            return ['success' => true];
+            return ['success' => true, 'mailer_used' => $primaryMailer];
         } catch (\Throwable $e) {
-            Log::error('SMTP Email dispatch failed to ' . $recipientEmail . ': ' . $e->getMessage(), [
-                'exception' => $e,
-                'recipient' => $recipientEmail,
-                'subject' => $subject,
-            ]);
+            $primaryError = $e->getMessage();
+            Log::warning("Primary mailer ({$primaryMailer}) failed to {$recipientEmail}: {$primaryError}. Attempting failover...");
 
-            return ['success' => false, 'error' => $e->getMessage()];
+            // 2. If primary was not sendmail, automatically fall back to local sendmail (Exim)
+            if ($primaryMailer !== 'sendmail') {
+                try {
+                    Mail::mailer('sendmail')->html($htmlBody, function ($message) use ($recipientEmail, $recipientName, $subject, $plainTextBody, $fromAddress, $fromName) {
+                        $message->to($recipientEmail, $recipientName ?: null)
+                                ->from($fromAddress, $fromName)
+                                ->subject($subject)
+                                ->text($plainTextBody);
+                    });
+
+                    Log::info("Failover to sendmail succeeded for {$recipientEmail}");
+                    return [
+                        'success' => true,
+                        'mailer_used' => 'sendmail',
+                        'notice' => "Delivered via server sendmail (SMTP attempt: {$primaryError})"
+                    ];
+                } catch (\Throwable $sendmailEx) {
+                    Log::error("Sendmail fallback also failed to {$recipientEmail}: " . $sendmailEx->getMessage());
+                }
+            }
+
+            return ['success' => false, 'error' => $primaryError];
         }
     }
 
