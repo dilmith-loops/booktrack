@@ -298,6 +298,30 @@ async function startServer() {
     });
   });
 
+  // Maintenance mode state
+  let maintenanceState = {
+    enabled: false,
+    message: 'Platform is currently undergoing scheduled maintenance. Please check back shortly.',
+    updatedAt: new Date().toISOString()
+  };
+
+  app.get('/api/settings/maintenance', (req, res) => {
+    res.json(maintenanceState);
+  });
+
+  app.post('/api/settings/maintenance', (req, res) => {
+    const { enabled, message } = req.body;
+    maintenanceState = {
+      enabled: Boolean(enabled),
+      message: typeof message === 'string' && message.trim() ? message.trim() : maintenanceState.message,
+      updatedAt: new Date().toISOString()
+    };
+    res.json({
+      success: true,
+      ...maintenanceState
+    });
+  });
+
   // Get all stalls
   app.get('/api/stalls', (req, res) => {
     res.json({ stalls: BMICH_STALLS });

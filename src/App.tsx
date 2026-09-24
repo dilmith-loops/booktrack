@@ -80,6 +80,86 @@ export default function App() {
   });
   const [showRegistration, setShowRegistration] = useState(false);
 
+  // System Maintenance Mode State
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('sampath_maintenance_mode');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return Boolean(parsed.enabled);
+      }
+    } catch {}
+    return false;
+  });
+
+  const [maintenanceMessage, setMaintenanceMessage] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('sampath_maintenance_mode');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.message) return parsed.message;
+      }
+    } catch {}
+    return 'Sampath Book Finder is temporarily offline for scheduled system updates and stall inventory syncing. We will be back online shortly.';
+  });
+
+  const [isCheckingMaintenance, setIsCheckingMaintenance] = useState(false);
+
+  const checkMaintenanceStatus = async () => {
+    setIsCheckingMaintenance(true);
+    try {
+      const res = await apiFetch('/api/settings/maintenance');
+      if (res.ok) {
+        const data = await res.json();
+        const enabled = Boolean(data.enabled);
+        setIsMaintenanceMode(enabled);
+        if (data.message) {
+          setMaintenanceMessage(data.message);
+        }
+        localStorage.setItem(
+          'sampath_maintenance_mode',
+          JSON.stringify({ enabled, message: data.message })
+        );
+      }
+    } catch {
+      // Keep existing local state on network error
+    } finally {
+      setIsCheckingMaintenance(false);
+    }
+  };
+
+  useEffect(() => {
+    checkMaintenanceStatus();
+    // Poll maintenance status periodically (every 20 seconds)
+    const interval = setInterval(checkMaintenanceStatus, 20000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleToggleMaintenanceMode = async (enabled: boolean, message?: string) => {
+    const finalMsg = message || maintenanceMessage;
+    setIsMaintenanceMode(enabled);
+    if (message) setMaintenanceMessage(message);
+
+    localStorage.setItem(
+      'sampath_maintenance_mode',
+      JSON.stringify({ enabled, message: finalMsg })
+    );
+
+    try {
+      const token = sessionStorage.getItem('sampath_admin_token') || '';
+      await apiFetch('/api/settings/maintenance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': token
+        },
+        body: JSON.stringify({ enabled, message: finalMsg })
+      });
+    } catch (err) {
+      console.error('Failed to sync maintenance status to server', err);
+    }
+  };
+
   useEffect(() => {
     if (checkIsAdminRoute()) {
       setShowSplash(false);
@@ -134,6 +214,7 @@ export default function App() {
   });
 
   const handleSplashComplete = () => {
+    if (isMaintenanceMode) return;
     setShowSplash(false);
     if (userProfile) {
       setActiveTab('chat');
@@ -490,12 +571,21 @@ export default function App() {
     <div className="min-h-screen bg-[#18181B] flex justify-center selection:bg-[#F37021] selection:text-white">
       {/* Mobile PWA Shell container: Fits phones natively */}
       <div className="w-full max-w-md min-h-screen bg-white flex flex-col shadow-2xl relative">
-        {/* 1. Splash Screen on Launch */}
-        {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+        {/* 1. Splash Screen on Launch or Maintenance Mode */}
+        {(showSplash || isMaintenanceMode) && (
+          <SplashScreen
+            onComplete={handleSplashComplete}
+            isMaintenanceMode={isMaintenanceMode}
+            maintenanceMessage={maintenanceMessage}
+            onOpenAdmin={() => setShowAdminModal(true)}
+            onRefreshStatus={checkMaintenanceStatus}
+            isCheckingStatus={isCheckingMaintenance}
+          />
+        )}
 
         {/* 2. Registration & Login Authentication Modal */}
         <RegistrationWindow
-          isOpen={showRegistration || (!userProfile && !showSplash)}
+          isOpen={!isMaintenanceMode && (showRegistration || (!userProfile && !showSplash))}
           onClose={() => {
             const hasUser = !!userProfile || !!localStorage.getItem('sampath_bookfair_user');
             if (!hasUser) {
@@ -554,6 +644,9 @@ export default function App() {
           onPublishAnnouncement={handlePublishAnnouncement}
           onDeleteAnnouncement={handleDeleteAnnouncement}
           onToggleUserCardholder={handleToggleUserCardholder}
+          isMaintenanceMode={isMaintenanceMode}
+          maintenanceMessage={maintenanceMessage}
+          onToggleMaintenanceMode={handleToggleMaintenanceMode}
         />
 
         {/* 4. Interactive Feature Demo Tour */}

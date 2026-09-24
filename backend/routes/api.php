@@ -26,6 +26,11 @@ Route::prefix('admin')->group(function () {
     Route::post('/verify', [AdminController::class, 'verify']);
 });
 
+// System Settings & Maintenance Mode
+Route::get('/settings/maintenance', [AdminController::class, 'getMaintenanceStatus']);
+Route::post('/settings/maintenance', [AdminController::class, 'setMaintenanceMode']);
+
+
 // Registered Users Management (Admin protected)
 Route::get('/users', [UserController::class, 'index']);
 Route::post('/users', [UserController::class, 'store']);

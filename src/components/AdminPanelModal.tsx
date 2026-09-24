@@ -18,7 +18,9 @@ import {
   Key,
   LogOut,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  Power,
+  Wrench
 } from 'lucide-react';
 import { Stall, BookSpotting, UserProfile, Announcement } from '../types';
 import { apiFetch } from '../utils/api';
@@ -46,6 +48,9 @@ interface AdminPanelModalProps {
   onPublishAnnouncement: (announcement: Announcement) => void;
   onDeleteAnnouncement: (id: string) => void;
   onToggleUserCardholder?: (handle: string) => void;
+  isMaintenanceMode?: boolean;
+  maintenanceMessage?: string;
+  onToggleMaintenanceMode?: (enabled: boolean, message?: string) => Promise<void> | void;
 }
 
 type AdminTab = 'overview' | 'spots' | 'stalls' | 'announcements' | 'users';
@@ -69,7 +74,10 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onDeleteStall,
   onPublishAnnouncement,
   onDeleteAnnouncement,
-  onToggleUserCardholder
+  onToggleUserCardholder,
+  isMaintenanceMode = false,
+  maintenanceMessage = '',
+  onToggleMaintenanceMode
 }) => {
   const [adminToken, setAdminToken] = useState<string>(() => sessionStorage.getItem('sampath_admin_token') || '');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!sessionStorage.getItem('sampath_admin_token'));
@@ -79,6 +87,62 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [authError, setAuthError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+
+  // Maintenance mode state
+  const [maintenanceActive, setMaintenanceActive] = useState<boolean>(() => isMaintenanceMode);
+  const [maintenanceNotice, setMaintenanceNotice] = useState<string>(
+    () => maintenanceMessage || 'Sampath Book Finder is temporarily offline for scheduled system updates and stall inventory syncing. We will be back online shortly.'
+  );
+  const [isSavingMaintenance, setIsSavingMaintenance] = useState(false);
+  const [maintenanceSuccessMsg, setMaintenanceSuccessMsg] = useState('');
+
+  React.useEffect(() => {
+    setMaintenanceActive(isMaintenanceMode);
+  }, [isMaintenanceMode]);
+
+  React.useEffect(() => {
+    if (maintenanceMessage) {
+      setMaintenanceNotice(maintenanceMessage);
+    }
+  }, [maintenanceMessage]);
+
+  const handleToggleMaintenance = async (nextState: boolean) => {
+    setIsSavingMaintenance(true);
+    setMaintenanceSuccessMsg('');
+    try {
+      setMaintenanceActive(nextState);
+      if (onToggleMaintenanceMode) {
+        await onToggleMaintenanceMode(nextState, maintenanceNotice);
+      }
+      setMaintenanceSuccessMsg(
+        nextState
+          ? 'Maintenance mode is now ENABLED. Public access restricted to splash screen.'
+          : 'Maintenance mode is now DISABLED. Community hub is live.'
+      );
+      setTimeout(() => setMaintenanceSuccessMsg(''), 4000);
+    } catch (err) {
+      console.error('Failed to toggle maintenance mode', err);
+    } finally {
+      setIsSavingMaintenance(false);
+    }
+  };
+
+  const handleSaveMaintenanceNotice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingMaintenance(true);
+    setMaintenanceSuccessMsg('');
+    try {
+      if (onToggleMaintenanceMode) {
+        await onToggleMaintenanceMode(maintenanceActive, maintenanceNotice);
+      }
+      setMaintenanceSuccessMsg('Maintenance notice saved and updated.');
+      setTimeout(() => setMaintenanceSuccessMsg(''), 4000);
+    } catch (err) {
+      console.error('Failed to save maintenance notice', err);
+    } finally {
+      setIsSavingMaintenance(false);
+    }
+  };
 
   // Registered MySQL users state
   const [serverUsers, setServerUsers] = useState<UserProfile[]>([]);
@@ -223,7 +287,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const displayUsers = serverUsers.length > 0 ? serverUsers : registeredUsers;
 
   return (
-    <div className="fixed inset-0 z-50 bg-zinc-950 text-white min-h-screen w-full overflow-y-auto flex flex-col font-sans selection:bg-[#F37021] selection:text-white animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[110] bg-zinc-950 text-white min-h-screen w-full overflow-y-auto flex flex-col font-sans selection:bg-[#F37021] selection:text-white animate-in fade-in duration-200">
       {/* Top Navigation Bar */}
       <header className="bg-zinc-900/90 backdrop-blur-md border-b border-zinc-800 sticky top-0 z-30 px-4 sm:px-8 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -238,6 +302,12 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
               <span className="text-[10px] bg-[#F37021]/20 text-[#F37021] font-black px-2 py-0.5 rounded-full border border-[#F37021]/30 uppercase tracking-wider">
                 Official Admin
               </span>
+              {maintenanceActive && (
+                <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[10px] font-black uppercase tracking-wider animate-pulse">
+                  <Wrench className="w-3 h-3 text-amber-400" />
+                  <span>Maintenance Active</span>
+                </span>
+              )}
             </div>
             <p className="text-xs text-zinc-400 font-medium hidden sm:block">
               Colombo International Book Fair 2026 • Sponsored by Sampath Bank PLC
@@ -490,6 +560,101 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                     Participating Cardholder Offers
                   </span>
                 </div>
+              </div>
+
+              {/* Maintenance Mode & Public Access Control Card */}
+              <div
+                className={`p-6 rounded-2xl border transition-all ${
+                  maintenanceActive
+                    ? 'bg-amber-950/25 border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.15)] ring-1 ring-amber-500/30'
+                    : 'bg-zinc-900 border-zinc-800'
+                }`}
+              >
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-zinc-800/80">
+                  <div className="flex items-start gap-3.5">
+                    <div
+                      className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors ${
+                        maintenanceActive
+                          ? 'bg-amber-500/20 text-amber-400 ring-2 ring-amber-500/40'
+                          : 'bg-zinc-800 text-zinc-400'
+                      }`}
+                    >
+                      <Wrench className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <h3 className="text-base font-black text-white">
+                          Public Maintenance Mode
+                        </h3>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            maintenanceActive
+                              ? 'bg-amber-500 text-zinc-950 animate-pulse'
+                              : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          }`}
+                        >
+                          {maintenanceActive ? 'Maintenance Mode Enabled' : 'Normal Operation (Live)'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-1 max-w-xl leading-relaxed">
+                        {maintenanceActive
+                          ? 'When enabled, all public visitors see the Maintenance Onboarding/Splash screen with your custom notice. Entering the community hub is blocked until disabled.'
+                          : 'The platform is open to all visitors. Community feed, book searches, and posting are fully accessible.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Toggle Button */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      id="toggle-maintenance-btn"
+                      disabled={isSavingMaintenance}
+                      onClick={() => handleToggleMaintenance(!maintenanceActive)}
+                      className={`px-5 py-3 rounded-xl font-black text-xs transition-all cursor-pointer shadow-md flex items-center gap-2 active:scale-95 disabled:opacity-60 whitespace-nowrap ${
+                        maintenanceActive
+                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/40'
+                          : 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-900/40 ring-1 ring-amber-400/40'
+                      }`}
+                    >
+                      <Power className="w-4 h-4" />
+                      <span>{maintenanceActive ? 'Disable Maintenance (Go Live)' : 'Enable Maintenance Mode'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Maintenance Notice Editor */}
+                <form onSubmit={handleSaveMaintenanceNotice} className="pt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-zinc-300">
+                      Maintenance Screen Message (Live on Splash Screen)
+                    </label>
+                    {maintenanceSuccessMsg && (
+                      <span className="text-xs font-bold text-emerald-400 animate-in fade-in">
+                        {maintenanceSuccessMsg}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2.5">
+                    <input
+                      type="text"
+                      value={maintenanceNotice}
+                      onChange={(e) => setMaintenanceNotice(e.target.value)}
+                      placeholder="e.g. Platform undergoing scheduled upgrades. Back shortly!"
+                      className="flex-1 px-4 py-2.5 bg-zinc-950 border border-zinc-700/80 rounded-xl text-xs font-medium text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#F37021]"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSavingMaintenance}
+                      className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs transition-colors cursor-pointer border border-zinc-700 flex items-center justify-center gap-1.5 whitespace-nowrap disabled:opacity-50"
+                    >
+                      <span>Save Notice</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-zinc-500">
+                    Changes take effect immediately on visitor devices and reload screens.
+                  </p>
+                </form>
               </div>
 
               {/* System Health Status */}

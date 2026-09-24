@@ -111,3 +111,10 @@ export interface AppNotification {
   isRead?: boolean;
 }
 
+export interface MaintenanceSettings {
+  enabled: boolean;
+  message: string;
+  updatedAt?: string;
+}
+
+

@@ -95,4 +95,64 @@ class AdminController extends Controller
 
         return true;
     }
+
+    /**
+     * Get current maintenance mode status.
+     */
+    public function getMaintenanceStatus(): JsonResponse
+    {
+        $filePath = storage_path('app/maintenance.json');
+        if (file_exists($filePath)) {
+            $data = json_decode(file_get_contents($filePath), true);
+            if (is_array($data)) {
+                return response()->json([
+                    'enabled' => !empty($data['enabled']),
+                    'message' => $data['message'] ?? 'Platform is currently undergoing scheduled maintenance. Please check back shortly.',
+                    'updatedAt' => $data['updatedAt'] ?? null,
+                ]);
+            }
+        }
+
+        return response()->json([
+            'enabled' => false,
+            'message' => 'Platform is operating normally.',
+            'updatedAt' => null,
+        ]);
+    }
+
+    /**
+     * Set maintenance mode (enable / disable).
+     */
+    public function setMaintenanceMode(Request $request): JsonResponse
+    {
+        $token = $request->header('X-Admin-Token') ?: $request->bearerToken();
+        if (!$token || !self::isValidToken($token)) {
+            return response()->json(['error' => 'Unauthorized. Administrator credentials required.'], 401);
+        }
+
+        $enabled = (bool) $request->input('enabled', false);
+        $message = trim((string) $request->input('message', 'Platform is currently undergoing scheduled maintenance. Please check back shortly.'));
+
+        $data = [
+            'enabled' => $enabled,
+            'message' => $message,
+            'updatedAt' => date('c'),
+            'updatedBy' => env('ADMIN_USERNAME', 'admin'),
+        ];
+
+        $filePath = storage_path('app/maintenance.json');
+        $dir = dirname($filePath);
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        @file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT));
+
+        return response()->json([
+            'success' => true,
+            'enabled' => $enabled,
+            'message' => $message,
+            'updatedAt' => $data['updatedAt'],
+        ]);
+    }
 }
+
