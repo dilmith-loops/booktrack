@@ -15,7 +15,7 @@ export default defineConfig(() => {
         base: basePath,
         scope: basePath,
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'logo.png', 'logo-icon.png', 'logo.jpeg', 'pwa-192x192.png', 'pwa-512x512.png'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'logo.png', 'logo-icon.png', 'logo.jpeg', 'pwa-192x192.png', 'pwa-512x512.png', 'splash/splash-logo.jpg', 'splash/splash-bg.jpg', 'splash/splash-poster.jpg', 'splash/logo-clean.png'],
         manifest: {
           id: basePath,
           name: 'Sampath Book Finder',
