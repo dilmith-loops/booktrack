@@ -2,7 +2,6 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
-import { BMICH_STALLS, INITIAL_SPOTTINGS } from './src/data/initialData';
 import { Stall, BookSpotting } from './src/types';
 
 // Prevent Node crash on transient Windows file lock errors during hot reload / file renames
@@ -16,7 +15,7 @@ process.on('uncaughtException', (err: any) => {
 });
 
 // In-memory data store for community spots
-let communitySpots: BookSpotting[] = [...INITIAL_SPOTTINGS];
+let communitySpots: BookSpotting[] = [];
 
 // Lazy-initialized Gemini AI client
 let aiClient: GoogleGenAI | null = null;
@@ -322,7 +321,7 @@ async function startServer() {
     });
   });
 
-  let stallsStore: Stall[] = [...BMICH_STALLS];
+  let stallsStore: Stall[] = [];
 
   // Get all stalls
   app.get('/api/stalls', (req, res) => {
@@ -595,7 +594,7 @@ async function startServer() {
       }
 
       // Find stall metadata if known
-      const matchedStall = BMICH_STALLS.find(s => s.name.toLowerCase() === stallName.toLowerCase() || s.id === stallId);
+      const matchedStall = stallsStore.find(s => s.name.toLowerCase() === stallName.toLowerCase() || s.id === stallId);
 
       const newSpot: BookSpotting = {
         id: `spot-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,

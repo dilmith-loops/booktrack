@@ -7,7 +7,7 @@
     "dev": "vite",
     "dev:node": "tsx server.ts",
     "backend:serve": "php backend/artisan serve --port=8000",
-    "backend:migrate": "php backend/artisan migrate:fresh --seed",
+    "backend:migrate": "php backend/artisan migrate:fresh",
     "build": "vite build && node scripts/sync-build.js && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "preview": "vite preview",

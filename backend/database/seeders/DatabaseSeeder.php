@@ -11,9 +11,6 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call([
-            StallSeeder::class,
-            SpotSeeder::class,
-        ]);
+        // Auto-seeding of mock data disabled to keep fair directory clean.
     }
 }

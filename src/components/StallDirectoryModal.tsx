@@ -23,6 +23,7 @@ export const StallDirectoryModal: React.FC<StallDirectoryModalProps> = ({
   const halls = ['All', 'Hall A', 'Hall B', 'Hall C', 'Hall D', 'Hall E', 'Sirimavo Hall'];
 
   const filtered = stalls.filter((s) => {
+    if (s.isHidden) return false;
     const matchesHall = selectedHall === 'All' || s.hall.toLowerCase().includes(selectedHall.toLowerCase());
     const matchesSearch =
       s.name.toLowerCase().includes(search.toLowerCase()) ||

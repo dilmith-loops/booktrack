@@ -11,7 +11,6 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { FeatureDemoTour } from './components/FeatureDemoTour';
 import { Stall, BookSpotting, UserProfile, Announcement } from './types';
-import { BMICH_STALLS, INITIAL_SPOTTINGS } from './data/initialData';
 import { apiFetch } from './utils/api';
 import { useNotifications } from './hooks/useNotifications';
 import { Search, MapPin, Building2, CreditCard, Check, Sparkles, Phone, ShieldCheck, Tag, Megaphone, Bell, X } from 'lucide-react';
@@ -22,12 +21,24 @@ export default function App() {
       const saved = localStorage.getItem('sampath_bmich_stalls');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        const legacyDummyIds = new Set([
+          'sarasavi-a', 'gunasena-b', 'vijitha-yapa-a', 'expographic-c',
+          'grantha-s', 'lakehouse-b', 'godage-d', 'dayawansa-d',
+          'sadeepa-b', 'makeen-a', 'jeya-a', 'samayawardhana-c',
+          'buddhist-cultural-e', 'masterguide-e', 'jumpbooks-c'
+        ]);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter((s: Stall) => !legacyDummyIds.has(s.id));
+          if (cleaned.length !== parsed.length) {
+            localStorage.setItem('sampath_bmich_stalls', JSON.stringify(cleaned));
+          }
+          return cleaned;
+        }
       }
     } catch {}
-    return BMICH_STALLS;
+    return [];
   });
-  const [spots, setSpots] = useState<BookSpotting[]>(INITIAL_SPOTTINGS);
+  const [spots, setSpots] = useState<BookSpotting[]>([]);
   const [selectedHallFilter, setSelectedHallFilter] = useState('All Halls');
   const [activeTab, setActiveTab] = useState<PwaTab>('chat');
   const [showFeatureTour, setShowFeatureTour] = useState(false);
@@ -42,16 +53,7 @@ export default function App() {
 
   // Admin Modal & Announcements State
   const [showAdminModal, setShowAdminModal] = useState(() => checkIsAdminRoute());
-  const [announcements, setAnnouncements] = useState<Announcement[]>([
-    {
-      id: 'ann-1',
-      message: '🎉 Sampath Bank Cardholders get 15% instant discount at Sarasavi & Expographic stalls!',
-      type: 'discount',
-      createdAt: Date.now(),
-      isActive: true,
-      publishedBy: 'Sampath Bank Team'
-    }
-  ]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   // Registered spotters list (local storage)
   const [registeredUsers, setRegisteredUsers] = useState<UserProfile[]>(() => {
@@ -241,21 +243,32 @@ export default function App() {
         ]);
         if (stallsRes.ok) {
           const sData = await stallsRes.json();
-          if (sData.stalls && sData.stalls.length > 0) {
-            setStalls(sData.stalls);
+          if (Array.isArray(sData.stalls)) {
+            const legacyDummyIds = new Set([
+              'sarasavi-a', 'gunasena-b', 'vijitha-yapa-a', 'expographic-c',
+              'grantha-s', 'lakehouse-b', 'godage-d', 'dayawansa-d',
+              'sadeepa-b', 'makeen-a', 'jeya-a', 'samayawardhana-c',
+              'buddhist-cultural-e', 'masterguide-e', 'jumpbooks-c'
+            ]);
+            const cleanStalls = sData.stalls.filter((s: Stall) => !legacyDummyIds.has(s.id));
+            setStalls(cleanStalls);
             try {
-              localStorage.setItem('sampath_bmich_stalls', JSON.stringify(sData.stalls));
+              localStorage.setItem('sampath_bmich_stalls', JSON.stringify(cleanStalls));
             } catch {}
           }
         }
         if (spotsRes.ok) {
           const pData = await spotsRes.json();
-          if (pData.spots && pData.spots.length > 0) {
-            setSpots(pData.spots);
+          if (Array.isArray(pData.spots)) {
+            const legacyDummySpotIds = new Set([
+              'spot-1', 'spot-2', 'spot-3', 'spot-4', 'spot-5', 'req-1', 'req-2', 'spot-hp-reply'
+            ]);
+            const cleanSpots = pData.spots.filter((s: BookSpotting) => !legacyDummySpotIds.has(s.id));
+            setSpots(cleanSpots);
           }
         }
       } catch (err) {
-        console.warn('Using offline dataset fallback:', err);
+        console.warn('Network sync notice:', err);
       }
     }
     loadData();
