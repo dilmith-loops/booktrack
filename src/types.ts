@@ -84,6 +84,7 @@ export interface UserProfile {
   registeredAt: number;
   isAdmin?: boolean;
   ipAddress?: string;
+  isDisabled?: boolean;
 }
 
 export interface Announcement {

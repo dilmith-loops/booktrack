@@ -112,6 +112,7 @@ class UserController extends Controller
 
         $explicitIp = trim((string) $request->input('ipAddress', ''));
         $clientIp = $explicitIp ?: AuthController::resolveClientIp($request);
+        $isDisabled = filter_var($request->input('isDisabled', $request->input('is_disabled', false)), FILTER_VALIDATE_BOOLEAN);
 
         $user = User::create([
             'name' => $name,
@@ -119,6 +120,7 @@ class UserController extends Controller
             'phone' => $phone,
             'handle' => $handle,
             'is_sampath_cardholder' => $isSampathCardholder,
+            'is_disabled' => $isDisabled,
             'ip_address' => $clientIp,
             'password' => Hash::make($password ?: 'SampathUser@2026')
         ]);
@@ -156,6 +158,10 @@ class UserController extends Controller
 
         if ($request->has('isSampathCardholder')) {
             $user->is_sampath_cardholder = filter_var($request->input('isSampathCardholder'), FILTER_VALIDATE_BOOLEAN);
+        }
+
+        if ($request->has('isDisabled') || $request->has('is_disabled')) {
+            $user->is_disabled = filter_var($request->input('isDisabled', $request->input('is_disabled')), FILTER_VALIDATE_BOOLEAN);
         }
 
         if (mb_strlen($name) < 2) {
@@ -256,6 +262,36 @@ class UserController extends Controller
             'success' => true,
             'user' => $user->toProfileArray(),
             'message' => "Cardholder status updated for {$user->name}."
+        ]);
+    }
+
+    /**
+     * Toggle user disabled status.
+     */
+    public function toggleDisable(Request $request, int|string $id): JsonResponse
+    {
+        if (!$this->checkAdminAuth($request)) {
+            return response()->json(['error' => 'Unauthorized.'], 401);
+        }
+
+        $user = User::find($id);
+        if (!$user) {
+            $user = User::where('handle', $id)->first();
+        }
+
+        if (!$user) {
+            return response()->json(['error' => 'User not found.'], 404);
+        }
+
+        $user->is_disabled = !$user->is_disabled;
+        $user->save();
+
+        $statusStr = $user->is_disabled ? 'disabled' : 'enabled';
+
+        return response()->json([
+            'success' => true,
+            'user' => $user->toProfileArray(),
+            'message' => "Spotter account for {$user->name} has been {$statusStr}."
         ]);
     }
 }

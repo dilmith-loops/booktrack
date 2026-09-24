@@ -38,6 +38,7 @@ Route::get('/users/{id}', [UserController::class, 'show']);
 Route::put('/users/{id}', [UserController::class, 'update']);
 Route::delete('/users/{id}', [UserController::class, 'destroy']);
 Route::post('/users/{id}/toggle-cardholder', [UserController::class, 'toggleCardholder']);
+Route::post('/users/{id}/toggle-disable', [UserController::class, 'toggleDisable']);
 
 // Public Health & Stalls
 Route::get('/health', [HealthController::class, 'index']);

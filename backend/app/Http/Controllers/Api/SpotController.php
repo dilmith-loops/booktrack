@@ -67,6 +67,17 @@ class SpotController extends Controller
             return response()->json(['error' => 'Book name is required.'], 400);
         }
 
+        $rawFinderHandle = trim((string) $request->input('finderHandle', ''));
+        if (!empty($rawFinderHandle)) {
+            $checkHandle = str_starts_with($rawFinderHandle, '@') ? $rawFinderHandle : '@' . $rawFinderHandle;
+            $authorUser = \App\Models\User::where('handle', $checkHandle)->first();
+            if ($authorUser && $authorUser->is_disabled) {
+                return response()->json([
+                    'error' => 'Your spotter account is currently disabled. You cannot post spots or requests.'
+                ], 403);
+            }
+        }
+
         // 2. Multilingual Content Moderation
         $modResult = $this->moderation->moderateContent(
             $bookName,

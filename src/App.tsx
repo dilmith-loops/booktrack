@@ -647,6 +647,28 @@ export default function App() {
     }
   };
 
+  const handleToggleDisableUser = (userIdOrHandle: string | number) => {
+    setRegisteredUsers((prev) =>
+      prev.map((u) => {
+        if (String(u.id) === String(userIdOrHandle) || u.handle === String(userIdOrHandle)) {
+          return { ...u, isDisabled: !u.isDisabled };
+        }
+        return u;
+      })
+    );
+    if (
+      userProfile &&
+      (String(userProfile.id) === String(userIdOrHandle) || userProfile.handle === String(userIdOrHandle))
+    ) {
+      const updated = {
+        ...userProfile,
+        isDisabled: !userProfile.isDisabled
+      };
+      setUserProfile(updated);
+      localStorage.setItem('sampath_bookfair_user', JSON.stringify(updated));
+    }
+  };
+
   // Visible stalls for public visitors (hidden stalls excluded)
   const visibleStalls = stalls.filter((s) => !s.isHidden);
 
@@ -775,6 +797,7 @@ export default function App() {
           onPublishAnnouncement={handlePublishAnnouncement}
           onDeleteAnnouncement={handleDeleteAnnouncement}
           onToggleUserCardholder={handleToggleUserCardholder}
+          onToggleDisableUser={handleToggleDisableUser}
           isMaintenanceMode={isMaintenanceMode}
           maintenanceMessage={maintenanceMessage}
           onToggleMaintenanceMode={handleToggleMaintenanceMode}

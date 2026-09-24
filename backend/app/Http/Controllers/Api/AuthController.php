@@ -158,6 +158,12 @@ class AuthController extends Controller
             ], 404);
         }
 
+        if ($user->is_disabled) {
+            return response()->json([
+                'error' => 'Your spotter account has been disabled or suspended by an administrator. Please contact event desk.'
+            ], 403);
+        }
+
         if (!Hash::check($password, $user->password)) {
             return response()->json([
                 'error' => 'Invalid password. Please check your credentials or use Forgot Password.'
@@ -199,6 +205,12 @@ class AuthController extends Controller
             return response()->json([
                 'error' => 'Account not found. Please register first.'
             ], 404);
+        }
+
+        if ($user->is_disabled) {
+            return response()->json([
+                'error' => 'Your spotter account has been disabled by an administrator.'
+            ], 403);
         }
 
         // Generate 6-digit OTP
@@ -250,6 +262,12 @@ class AuthController extends Controller
 
         if (!$user || $user->otp_code !== $otp) {
             return response()->json(['error' => 'Invalid verification code.'], 401);
+        }
+
+        if ($user->is_disabled) {
+            return response()->json([
+                'error' => 'Your spotter account has been disabled by an administrator.'
+            ], 403);
         }
 
         if ($user->otp_expires_at && $user->otp_expires_at->isPast()) {

@@ -20,6 +20,7 @@ use Illuminate\Notifications\Notifiable;
     'otp_code',
     'otp_expires_at',
     'ip_address',
+    'is_disabled',
 ])]
 #[Hidden(['password', 'remember_token', 'otp_code'])]
 class User extends Authenticatable
@@ -37,6 +38,7 @@ class User extends Authenticatable
         'otp_code',
         'otp_expires_at',
         'ip_address',
+        'is_disabled',
     ];
 
     /**
@@ -50,6 +52,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'otp_expires_at' => 'datetime',
             'is_sampath_cardholder' => 'boolean',
+            'is_disabled' => 'boolean',
             'password' => 'hashed',
         ];
     }
@@ -69,6 +72,7 @@ class User extends Authenticatable
             'registeredAt' => $this->created_at ? (int) $this->created_at->getTimestampMs() : (int) round(microtime(true) * 1000),
             'isAdmin' => false,
             'ipAddress' => $this->ip_address ?: '',
+            'isDisabled' => (bool) $this->is_disabled,
         ];
     }
 }

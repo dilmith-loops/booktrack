@@ -48,6 +48,7 @@ interface AdminPanelModalProps {
   onPublishAnnouncement: (announcement: Announcement) => void;
   onDeleteAnnouncement: (id: string) => void;
   onToggleUserCardholder?: (handle: string) => void;
+  onToggleDisableUser?: (userId: string | number) => void;
   isMaintenanceMode?: boolean;
   maintenanceMessage?: string;
   onToggleMaintenanceMode?: (enabled: boolean, message?: string) => Promise<void> | void;
@@ -78,6 +79,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onPublishAnnouncement,
   onDeleteAnnouncement,
   onToggleUserCardholder,
+  onToggleDisableUser,
   isMaintenanceMode = false,
   maintenanceMessage = '',
   onToggleMaintenanceMode,
@@ -827,6 +829,19 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                   prev.map((u) => {
                     if (u.id === uid || u.handle === uid) {
                       return { ...u, isSampathCardholder: !u.isSampathCardholder };
+                    }
+                    return u;
+                  })
+                );
+              }}
+              onToggleDisable={(uid) => {
+                if (onToggleDisableUser) {
+                  onToggleDisableUser(uid);
+                }
+                setServerUsers((prev) =>
+                  prev.map((u) => {
+                    if (u.id === uid || u.handle === uid) {
+                      return { ...u, isDisabled: !u.isDisabled };
                     }
                     return u;
                   })

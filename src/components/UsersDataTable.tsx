@@ -23,7 +23,11 @@ import {
   EyeOff,
   Filter,
   CheckSquare,
-  Square
+  Square,
+  UserCheck,
+  UserX,
+  Ban,
+  ShieldAlert
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { apiFetch } from '../utils/api';
@@ -36,9 +40,10 @@ interface UsersDataTableProps {
   onUserUpdated?: (user: UserProfile) => void;
   onUserDeleted?: (userId: string | number) => void;
   onToggleCardholder?: (userId: string | number) => void;
+  onToggleDisable?: (userId: string | number) => void;
 }
 
-type SortField = 'name' | 'handle' | 'email' | 'registeredAt' | 'isSampathCardholder' | 'ipAddress';
+type SortField = 'name' | 'handle' | 'email' | 'registeredAt' | 'isSampathCardholder' | 'ipAddress' | 'isDisabled';
 type SortOrder = 'asc' | 'desc';
 
 export const UsersDataTable: React.FC<UsersDataTableProps> = ({
@@ -48,11 +53,13 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
   onUserAdded,
   onUserUpdated,
   onUserDeleted,
-  onToggleCardholder
+  onToggleCardholder,
+  onToggleDisable
 }) => {
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCardholder, setFilterCardholder] = useState<'all' | 'cardholder' | 'standard'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'disabled'>('all');
 
   // Sorting
   const [sortField, setSortField] = useState<SortField>('registeredAt');
@@ -85,7 +92,8 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
     phone: '',
     password: '',
     isSampathCardholder: false,
-    ipAddress: ''
+    ipAddress: '',
+    isDisabled: false
   });
   const [showCreatePassword, setShowCreatePassword] = useState(false);
 
@@ -97,7 +105,8 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
     phone: '',
     password: '',
     isSampathCardholder: false,
-    ipAddress: ''
+    ipAddress: '',
+    isDisabled: false
   });
   const [showEditPassword, setShowEditPassword] = useState(false);
 
@@ -127,9 +136,14 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
         (filterCardholder === 'cardholder' && u.isSampathCardholder) ||
         (filterCardholder === 'standard' && !u.isSampathCardholder);
 
-      return matchesSearch && matchesCardholder;
+      const matchesStatus =
+        filterStatus === 'all' ||
+        (filterStatus === 'active' && !u.isDisabled) ||
+        (filterStatus === 'disabled' && !!u.isDisabled);
+
+      return matchesSearch && matchesCardholder && matchesStatus;
     });
-  }, [users, searchQuery, filterCardholder]);
+  }, [users, searchQuery, filterCardholder, filterStatus]);
 
   const sortedUsers = useMemo(() => {
     return [...filteredUsers].sort((a, b) => {
@@ -142,6 +156,9 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
       } else if (sortField === 'ipAddress') {
         valA = String(a.ipAddress || '').toLowerCase();
         valB = String(b.ipAddress || '').toLowerCase();
+      } else if (sortField === 'isDisabled') {
+        valA = a.isDisabled ? 1 : 0;
+        valB = b.isDisabled ? 1 : 0;
       } else if (typeof valA === 'string') {
         valA = valA.toLowerCase();
         valB = (valB || '').toLowerCase();
@@ -266,7 +283,8 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
       phone: user.phone || '',
       password: '',
       isSampathCardholder: !!user.isSampathCardholder,
-      ipAddress: user.ipAddress || ''
+      ipAddress: user.ipAddress || '',
+      isDisabled: !!user.isDisabled
     });
     setFormError(null);
   };
@@ -306,6 +324,7 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
           phone: editForm.phone.trim(),
           password: editForm.password || undefined,
           isSampathCardholder: editForm.isSampathCardholder,
+          isDisabled: editForm.isDisabled,
           ipAddress: editForm.ipAddress.trim() || undefined
         })
       });
@@ -412,6 +431,37 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
     }
   };
 
+  // TOGGLE DISABLED STATUS (ACTIVATE / SUSPEND)
+  const handleToggleDisableStatus = async (user: UserProfile) => {
+    const token = getEffectiveToken();
+    const identifier = user.id || user.handle;
+    const nextDisabled = !user.isDisabled;
+
+    try {
+      const res = await apiFetch(`/api/users/${identifier}/toggle-disable`, {
+        method: 'POST',
+        headers: { 'X-Admin-Token': token }
+      });
+
+      const data = await res.json();
+      if (res.ok && data.user) {
+        if (onUserUpdated) onUserUpdated(data.user);
+        showToast(data.message || `Spotter account ${nextDisabled ? 'disabled' : 'enabled'}.`);
+        if (onRefresh) onRefresh();
+      } else {
+        const fallbackUser = { ...user, isDisabled: nextDisabled };
+        if (onUserUpdated) onUserUpdated(fallbackUser);
+        if (onToggleDisable) onToggleDisable(identifier);
+        showToast(`Spotter account for "${user.name}" ${nextDisabled ? 'disabled' : 'enabled'}.`);
+      }
+    } catch {
+      const fallbackUser = { ...user, isDisabled: nextDisabled };
+      if (onUserUpdated) onUserUpdated(fallbackUser);
+      if (onToggleDisable) onToggleDisable(identifier);
+      showToast(`Spotter account for "${user.name}" ${nextDisabled ? 'disabled' : 'enabled'}.`);
+    }
+  };
+
   // EXPORT CSV
   const exportToCSV = () => {
     if (sortedUsers.length === 0) {
@@ -419,13 +469,14 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
       return;
     }
 
-    const headers = ['ID', 'Name', 'Handle', 'Email', 'Phone', 'Sampath Cardholder', 'Registration IP', 'Registered Date'];
+    const headers = ['ID', 'Name', 'Handle', 'Email', 'Phone', 'Account Status', 'Sampath Cardholder', 'Registration IP', 'Registered Date'];
     const rows = sortedUsers.map((u) => [
       `"${u.id || ''}"`,
       `"${u.name.replace(/"/g, '""')}"`,
       `"${u.handle}"`,
       `"${u.email || ''}"`,
       `"${u.phone || ''}"`,
+      u.isDisabled ? 'Disabled' : 'Active',
       u.isSampathCardholder ? 'Yes' : 'No',
       `"${u.ipAddress || ''}"`,
       `"${new Date(u.registeredAt || Date.now()).toLocaleString()}"`
@@ -442,6 +493,8 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
     showToast('Exported users registry to CSV.');
   };
 
+  const disabledCount = users.filter((u) => u.isDisabled).length;
+  const activeCount = users.length - disabledCount;
   const cardholderCount = users.filter((u) => u.isSampathCardholder).length;
   const standardCount = users.length - cardholderCount;
   const cardholderPercentage = users.length > 0 ? Math.round((cardholderCount / users.length) * 100) : 0;
@@ -457,7 +510,7 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
       )}
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Registered Spotters</span>
@@ -471,23 +524,44 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Sampath Cardholders</span>
-            <div className="text-2xl font-black text-emerald-400 mt-1">{cardholderCount}</div>
-            <span className="text-[10px] text-emerald-500 font-bold">{cardholderPercentage}% of fair community</span>
+            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Active Spotters</span>
+            <div className="text-2xl font-black text-emerald-400 mt-1">{activeCount}</div>
+            <span className="text-[10px] text-emerald-500 font-bold">Authorized to spot & post</span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-            <CreditCard className="w-6 h-6" />
+            <UserCheck className="w-6 h-6" />
           </div>
         </div>
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Standard Spotters</span>
-            <div className="text-2xl font-black text-zinc-300 mt-1">{standardCount}</div>
-            <span className="text-[10px] text-zinc-500">Regular fair visitors</span>
+            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Disabled Accounts</span>
+            <div className={`text-2xl font-black mt-1 ${disabledCount > 0 ? 'text-rose-400' : 'text-zinc-400'}`}>
+              {disabledCount}
+            </div>
+            <span className="text-[10px] text-zinc-500">
+              {disabledCount > 0 ? 'Suspended access' : 'No suspended spotters'}
+            </span>
           </div>
-          <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-400">
-            <User className="w-6 h-6" />
+          <div
+            className={`w-12 h-12 rounded-xl border flex items-center justify-center ${
+              disabledCount > 0
+                ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                : 'bg-zinc-800 border-zinc-700 text-zinc-500'
+            }`}
+          >
+            <UserX className="w-6 h-6" />
+          </div>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Cardholders</span>
+            <div className="text-2xl font-black text-amber-400 mt-1">{cardholderCount}</div>
+            <span className="text-[10px] text-amber-500 font-bold">{cardholderPercentage}% of fair community</span>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <CreditCard className="w-6 h-6" />
           </div>
         </div>
       </div>
@@ -496,7 +570,7 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Search & Filters */}
         <div className="flex items-center gap-2.5 flex-1 flex-wrap">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <div className="relative flex-1 min-w-[180px] max-w-sm">
             <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-3" />
             <input
               type="text"
@@ -518,6 +592,24 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
             )}
           </div>
 
+          {/* Account Status Filter */}
+          <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+            <ShieldAlert className="w-3.5 h-3.5" />
+            <select
+              value={filterStatus}
+              onChange={(e: any) => {
+                setFilterStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#F37021]"
+            >
+              <option value="all">All Statuses ({users.length})</option>
+              <option value="active">Active Only ({activeCount})</option>
+              <option value="disabled">Disabled Only ({disabledCount})</option>
+            </select>
+          </div>
+
+          {/* Cardholder Type Filter */}
           <div className="flex items-center gap-1.5 text-xs text-zinc-400">
             <Filter className="w-3.5 h-3.5" />
             <select
@@ -610,6 +702,13 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                   </div>
                 </th>
 
+                <th className="p-3.5 cursor-pointer hover:text-white" onClick={() => handleSort('isDisabled')}>
+                  <div className="flex items-center gap-1">
+                    <span>Status</span>
+                    <ArrowUpDown className="w-3 h-3 text-zinc-500" />
+                  </div>
+                </th>
+
                 <th
                   className="p-3.5 cursor-pointer hover:text-white"
                   onClick={() => handleSort('isSampathCardholder')}
@@ -641,7 +740,7 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
             <tbody className="divide-y divide-zinc-800/60 font-medium text-zinc-300">
               {paginatedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-zinc-500">
+                  <td colSpan={8} className="p-8 text-center text-zinc-500">
                     <Users className="w-8 h-8 mx-auto mb-2 opacity-40 text-zinc-400" />
                     <p className="font-bold text-sm">No registered spotters found.</p>
                     <p className="text-xs text-zinc-600 mt-1">
@@ -658,7 +757,9 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                   return (
                     <tr
                       key={String(uid)}
-                      className={`hover:bg-zinc-800/40 transition-colors ${isSelected ? 'bg-orange-500/5' : ''}`}
+                      className={`hover:bg-zinc-800/40 transition-colors ${isSelected ? 'bg-orange-500/5' : ''} ${
+                        user.isDisabled ? 'bg-rose-950/15 border-l-2 border-l-rose-500' : ''
+                      }`}
                     >
                       {/* Checkbox */}
                       <td className="p-3.5 text-center">
@@ -677,11 +778,26 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                       {/* Name & Handle */}
                       <td className="p-3.5">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#F37021] to-[#EA580C] text-white font-black text-xs flex items-center justify-center shadow-xs flex-shrink-0">
+                          <div
+                            className={`w-8 h-8 rounded-xl font-black text-xs flex items-center justify-center shadow-xs flex-shrink-0 text-white ${
+                              user.isDisabled
+                                ? 'bg-zinc-700 text-zinc-400'
+                                : 'bg-gradient-to-tr from-[#F37021] to-[#EA580C]'
+                            }`}
+                          >
                             {initial}
                           </div>
                           <div>
-                            <div className="font-bold text-white text-xs leading-tight">{user.name}</div>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`font-bold text-xs leading-tight ${user.isDisabled ? 'text-zinc-400 line-through' : 'text-white'}`}>
+                                {user.name}
+                              </span>
+                              {user.isDisabled && (
+                                <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                  Disabled
+                                </span>
+                              )}
+                            </div>
                             <div className="text-[11px] font-mono text-[#EA580C] mt-0.5">{user.handle}</div>
                           </div>
                         </div>
@@ -701,6 +817,31 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                             </div>
                           )}
                         </div>
+                      </td>
+
+                      {/* Account Status Badge & Quick Toggle */}
+                      <td className="p-3.5">
+                        <button
+                          onClick={() => handleToggleDisableStatus(user)}
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-black inline-flex items-center gap-1.5 cursor-pointer transition-all border shadow-xs ${
+                            user.isDisabled
+                              ? 'bg-rose-500/15 text-rose-400 border-rose-500/30 hover:bg-rose-500/25'
+                              : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25'
+                          }`}
+                          title={`Account is currently ${user.isDisabled ? 'Disabled (Click to Enable)' : 'Active (Click to Disable)'}`}
+                        >
+                          {user.isDisabled ? (
+                            <>
+                              <Ban className="w-3 h-3 text-rose-400" />
+                              <span>Disabled</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                              <span>Active</span>
+                            </>
+                          )}
+                        </button>
                       </td>
 
                       {/* Cardholder Badge & Quick Toggle */}
@@ -753,6 +894,18 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                             title="View Profile Details"
                           >
                             <Eye className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            onClick={() => handleToggleDisableStatus(user)}
+                            className={`p-1.5 rounded-lg cursor-pointer transition-colors border ${
+                              user.isDisabled
+                                ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border-emerald-500/30'
+                                : 'bg-zinc-800 hover:bg-rose-500/20 text-zinc-300 hover:text-rose-400 border-zinc-700 hover:border-rose-500/30'
+                            }`}
+                            title={user.isDisabled ? 'Enable Account (Restore Access)' : 'Disable Account (Suspend Access)'}
+                          >
+                            {user.isDisabled ? <UserCheck className="w-3.5 h-3.5" /> : <UserX className="w-3.5 h-3.5" />}
                           </button>
 
                           <button
@@ -1075,6 +1228,25 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                 />
               </div>
 
+              <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-xl flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Disable Spotter Account</span>
+                  </div>
+                  <div className="text-[10px] text-zinc-400 mt-0.5">
+                    Suspends spotter: blocks login, posting spots, and submitting requests
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  id="edit-disabled"
+                  checked={editForm.isDisabled}
+                  onChange={(e) => setEditForm({ ...editForm, isDisabled: e.target.checked })}
+                  className="h-4 w-4 rounded border-zinc-700 text-rose-500 focus:ring-rose-500 cursor-pointer"
+                />
+              </div>
+
               <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-xl flex items-center gap-2.5">
                 <input
                   type="checkbox"
@@ -1092,14 +1264,14 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
                 <button
                   type="button"
                   onClick={() => setEditingUser(null)}
-                  className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold"
+                  className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 rounded-xl bg-[#F37021] hover:bg-[#EA580C] text-white text-xs font-black flex items-center gap-1.5 shadow-md disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-[#F37021] hover:bg-[#EA580C] text-white text-xs font-black flex items-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -1120,20 +1292,55 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
           <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl text-left space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#F37021] to-[#EA580C] text-white font-black text-lg flex items-center justify-center shadow-md">
+                <div
+                  className={`w-12 h-12 rounded-2xl font-black text-lg flex items-center justify-center shadow-md text-white ${
+                    viewingUser.isDisabled
+                      ? 'bg-zinc-700 text-zinc-400'
+                      : 'bg-gradient-to-tr from-[#F37021] to-[#EA580C]'
+                  }`}
+                >
                   {viewingUser.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-white">{viewingUser.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-black text-white">{viewingUser.name}</h3>
+                    {viewingUser.isDisabled && (
+                      <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                        Disabled
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs font-mono text-[#F37021]">{viewingUser.handle}</div>
                 </div>
               </div>
-              <button onClick={() => setViewingUser(null)} className="text-zinc-400 hover:text-white p-1 rounded-lg">
+              <button onClick={() => setViewingUser(null)} className="text-zinc-400 hover:text-white p-1 rounded-lg cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="space-y-3 bg-zinc-950 p-4 rounded-2xl border border-zinc-800 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-500 font-bold">Account Status:</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1 border ${
+                    viewingUser.isDisabled
+                      ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                      : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                  }`}
+                >
+                  {viewingUser.isDisabled ? (
+                    <>
+                      <Ban className="w-3 h-3" />
+                      <span>Disabled (Suspended)</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span>Active</span>
+                    </>
+                  )}
+                </span>
+              </div>
               <div className="flex items-center justify-between">
                 <span className="text-zinc-500 font-bold">Email Address:</span>
                 <span className="text-zinc-200 font-semibold">{viewingUser.email || '—'}</span>
@@ -1171,18 +1378,33 @@ export const UsersDataTable: React.FC<UsersDataTableProps> = ({
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 onClick={() => {
+                  const targetUser = viewingUser;
+                  handleToggleDisableStatus(targetUser);
+                  setViewingUser({ ...targetUser, isDisabled: !targetUser.isDisabled });
+                }}
+                className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                  viewingUser.isDisabled
+                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30'
+                    : 'bg-rose-500/20 text-rose-400 border-rose-500/30 hover:bg-rose-500/30'
+                }`}
+              >
+                {viewingUser.isDisabled ? <UserCheck className="w-3.5 h-3.5" /> : <UserX className="w-3.5 h-3.5" />}
+                <span>{viewingUser.isDisabled ? 'Enable Account' : 'Disable Account'}</span>
+              </button>
+              <button
+                onClick={() => {
                   const u = viewingUser;
                   setViewingUser(null);
                   handleOpenEdit(u);
                 }}
-                className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <Edit2 className="w-3.5 h-3.5" />
                 <span>Edit Profile</span>
               </button>
               <button
                 onClick={() => setViewingUser(null)}
-                className="px-4 py-2 rounded-xl bg-[#F37021] text-white text-xs font-black"
+                className="px-4 py-2 rounded-xl bg-[#F37021] text-white text-xs font-black cursor-pointer"
               >
                 Close
               </button>
