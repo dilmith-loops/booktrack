@@ -64,7 +64,7 @@ export const Header: React.FC<HeaderProps> = ({
               <img
                 src={`${import.meta.env.BASE_URL}header-logo.png`}
                 alt="Sampath Bank"
-                className="h-5 sm:h-6 w-auto object-contain"
+                className="h-6 sm:h-7 w-auto object-contain"
               />
               <div className="h-4 sm:h-5 w-[1px] bg-zinc-200" aria-hidden="true" />
             </>
