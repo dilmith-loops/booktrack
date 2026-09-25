@@ -524,6 +524,35 @@ export default function App() {
     setActiveTab(tab);
   };
 
+  // Dynamic SEO Page Title & Meta Description Synchronization
+  useEffect(() => {
+    let title = 'Colombo International Book Fair 2026 | Sampath Book Finder & BMICH Stall Locator';
+    let desc = 'Official Sampath Book Finder for Colombo International Book Fair 2026 at BMICH. Instantly search 400+ publisher stalls across Halls A–P, find live book sightings, and unlock exclusive Sampath Bank discounts.';
+
+    if (showAdminModal) {
+      title = 'Control Center & Stall Management | Sampath Book Finder Admin';
+      desc = 'Official administration portal for Colombo International Book Fair 2026 book radar, stalls directory, and notices.';
+    } else if (activeTab === 'stalls') {
+      title = 'BMICH Stalls Directory & Hall Map | Colombo International Book Fair 2026';
+      desc = 'Browse 400+ publisher stalls across BMICH Exhibition Halls A–P. Search by hall, publisher name, or category with interactive stall locator.';
+    } else if (activeTab === 'radar') {
+      title = 'Live Book Radar & Sightings | Colombo International Book Fair 2026';
+      desc = 'Real-time community book sightings at BMICH Book Fair 2026. Discover where books are found, shelf location notes, and live stock statuses.';
+    } else if (activeTab === 'perks') {
+      title = 'Sampath Card Perks & Book Fair Discounts | Colombo International Book Fair 2026';
+      desc = 'Exclusive 15%–30% discounts for Sampath Bank Credit and Debit cardholders across all participating publisher stalls at CIBF 2026.';
+    } else if (activeTab === 'chat') {
+      title = 'Community Chat & Live Book Fair Notices | Colombo International Book Fair 2026';
+      desc = 'Join the live community conversation, ask for book locations, and get instant broadcast notices during the Colombo International Book Fair at BMICH.';
+    }
+
+    document.title = title;
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) {
+      metaDesc.setAttribute('content', desc);
+    }
+  }, [activeTab, showAdminModal]);
+
   // Compute unread spots in chat feed (0 when viewing chat tab)
   const unreadChatCount = useMemo(() => {
     if (activeTab === 'chat') return 0;
