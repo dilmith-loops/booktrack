@@ -347,17 +347,11 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
         <div className="bg-gradient-to-r from-[#F37021] via-[#EA580C] to-[#C2410C] text-white p-4 sm:p-5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             {/* Big Logo */}
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white p-1.5 shadow-md flex items-center justify-center flex-shrink-0 border border-white/40">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-white p-1 shadow-md flex items-center justify-center flex-shrink-0 border border-white/40">
               <img
-                src={`${import.meta.env.BASE_URL}logo-icon.png`}
-                alt="Sampath Bank"
+                src={`${import.meta.env.BASE_URL}book-finder-logo.png`}
+                alt="Book Finder"
                 className="w-full h-full object-contain"
-                onError={(e) => {
-                  const target = e.currentTarget;
-                  if (!target.src.includes('logo%20icon.png')) {
-                    target.src = `${import.meta.env.BASE_URL}logo%20icon.png`;
-                  }
-                }}
               />
             </div>
             {/* Only Title Text */}
