@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { 
   MapPin, 
   CheckCheck, 
@@ -12,7 +12,8 @@ import {
   Award, 
   Archive, 
   Trash2,
-  Info
+  Info,
+  Loader2
 } from 'lucide-react';
 import { BookSpotting, Stall, UserProfile } from '../types';
 
@@ -80,30 +81,169 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
     return senderColors[index];
   };
 
+  const INITIAL_PAGE_SIZE = 10;
+  const BATCH_SIZE = 10;
+
+  // Lazy loading state for chat messages: load latest 10 messages initially
+  const [visibleCount, setVisibleCount] = useState<number>(INITIAL_PAGE_SIZE);
+  const [isLoadingOlder, setIsLoadingOlder] = useState<boolean>(false);
+  const isLoadingOlderRef = useRef<boolean>(false);
+
+  // References for preserving exact scroll position when prepending older messages
+  const topAnchorSpotIdRef = useRef<string | null>(null);
+  const topAnchorOffsetRef = useRef<number | null>(null);
+  const topSentinelRef = useRef<HTMLDivElement>(null);
+  const isInitialMountRef = useRef<boolean>(true);
+  const hasInitialScrolledRef = useRef<boolean>(false);
+  const previousSpotsLengthRef = useRef<number>(spots.length);
+
   // Order chat stream chronologically: earlier messages on top, newest at bottom (WhatsApp style)
   const chatSpots = useMemo(() => {
     return [...spots].sort((a, b) => a.timestamp - b.timestamp);
   }, [spots]);
 
-  // Keep chat scrolled to the latest message on initial load and when new messages arrive
-  useEffect(() => {
-    if (!highlightedSpotId) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [spots.length, highlightedSpotId]);
+  const totalCount = chatSpots.length;
+  const startIndex = Math.max(0, totalCount - visibleCount);
+  const visibleSpots = useMemo(() => {
+    return chatSpots.slice(startIndex);
+  }, [chatSpots, startIndex]);
 
-  // Scroll to highlighted spot when notification is clicked
-  useEffect(() => {
-    if (highlightedSpotId) {
-      const timer = setTimeout(() => {
-        const el = document.getElementById(`chat-spot-${highlightedSpotId}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const hasMoreOlder = startIndex > 0;
+  const olderCount = startIndex;
+
+  // Seamlessly load more older messages while preserving exact scroll anchor
+  const loadMoreOlder = useCallback(() => {
+    if (isLoadingOlderRef.current || !hasMoreOlder) return;
+
+    // Capture the top-most visible spot element's bounding rect before prepending
+    const currentFirstSpot = visibleSpots[0];
+    if (currentFirstSpot) {
+      const el = document.getElementById(`chat-spot-${currentFirstSpot.id}`);
+      if (el) {
+        topAnchorSpotIdRef.current = currentFirstSpot.id;
+        topAnchorOffsetRef.current = el.getBoundingClientRect().top;
+      }
+    }
+
+    isLoadingOlderRef.current = true;
+    setIsLoadingOlder(true);
+
+    setVisibleCount(prev => Math.min(totalCount, prev + BATCH_SIZE));
+
+    setTimeout(() => {
+      isLoadingOlderRef.current = false;
+      setIsLoadingOlder(false);
+    }, 120);
+  }, [hasMoreOlder, visibleSpots, totalCount]);
+
+  // Instantly adjust scroll position after older messages are prepended to ensure ZERO visual shift
+  useLayoutEffect(() => {
+    if (topAnchorSpotIdRef.current && topAnchorOffsetRef.current !== null) {
+      const el = document.getElementById(`chat-spot-${topAnchorSpotIdRef.current}`);
+      if (el) {
+        const currentTop = el.getBoundingClientRect().top;
+        const delta = currentTop - topAnchorOffsetRef.current;
+        if (Math.abs(delta) > 0.5) {
+          window.scrollBy({ top: delta, behavior: 'instant' as ScrollBehavior });
         }
-      }, 100);
+      }
+      topAnchorSpotIdRef.current = null;
+      topAnchorOffsetRef.current = null;
+    }
+  }, [visibleSpots]);
+
+  // Top sentinel observer: triggers loading older messages as user scrolls up
+  useEffect(() => {
+    const sentinel = topSentinelRef.current;
+    if (!sentinel || !hasMoreOlder) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting && !isLoadingOlderRef.current && hasInitialScrolledRef.current) {
+          loadMoreOlder();
+        }
+      },
+      {
+        root: null,
+        rootMargin: '200px 0px 0px 0px',
+        threshold: 0.05
+      }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMoreOlder, loadMoreOlder]);
+
+  // Window scroll fallback listener when user scrolls near the top
+  useEffect(() => {
+    if (!hasMoreOlder) return;
+
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          if (hasInitialScrolledRef.current && window.scrollY < 200 && !isLoadingOlderRef.current) {
+            loadMoreOlder();
+          }
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [hasMoreOlder, loadMoreOlder]);
+
+  // Manage scroll on initial load and when new messages arrive
+  useEffect(() => {
+    if (highlightedSpotId) return;
+
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      // Scroll to latest message on initial load
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      const timer = setTimeout(() => {
+        hasInitialScrolledRef.current = true;
+      }, 350);
       return () => clearTimeout(timer);
     }
-  }, [highlightedSpotId]);
+
+    // When new messages are added to the feed
+    if (spots.length > previousSpotsLengthRef.current) {
+      const addedCount = spots.length - previousSpotsLengthRef.current;
+      setVisibleCount(prev => prev + addedCount);
+
+      const isNearBottom =
+        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 350;
+      if (isNearBottom) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+    previousSpotsLengthRef.current = spots.length;
+  }, [spots.length, highlightedSpotId]);
+
+  // Scroll to highlighted spot when notification is clicked, expanding visible window if needed
+  useEffect(() => {
+    if (!highlightedSpotId) return;
+
+    const spotIndex = chatSpots.findIndex(s => s.id === highlightedSpotId);
+    if (spotIndex !== -1) {
+      const neededCount = chatSpots.length - spotIndex;
+      if (neededCount > visibleCount) {
+        setVisibleCount(neededCount + 2);
+      }
+    }
+
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`chat-spot-${highlightedSpotId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [highlightedSpotId, chatSpots, visibleCount]);
 
   const formatChatTime = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -140,8 +280,6 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
           backgroundSize: '20px 20px'
         }}
       >
-
-
         {/* WhatsApp End-to-End Style System Bubble */}
         <div className="flex justify-center my-1">
           <div className="bg-[#FCF5EB] border border-[#E8DEC8] text-[#54656F] px-3.5 py-1 rounded-xl text-[10px] font-medium shadow-xs max-w-xs text-center flex items-center gap-1.5">
@@ -159,6 +297,42 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
           </span>
         </div>
 
+        {/* Top Sentinel & Earlier Messages Loader */}
+        <div ref={topSentinelRef} className="h-0.5 w-full pointer-events-none" aria-hidden="true" />
+
+        {hasMoreOlder && (
+          <div className="flex flex-col items-center justify-center py-2 animate-in fade-in duration-200">
+            <button
+              type="button"
+              id="load-earlier-messages-btn"
+              onClick={loadMoreOlder}
+              disabled={isLoadingOlder}
+              className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/95 hover:bg-white text-zinc-600 hover:text-zinc-900 border border-zinc-200/90 shadow-xs text-[10px] font-bold transition-all active:scale-95 cursor-pointer disabled:opacity-60"
+              title="Scroll up or tap to load previous messages"
+            >
+              {isLoadingOlder ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin text-[#F37021]" />
+                  <span>Loading earlier messages...</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-[#F37021] font-black">↑</span>
+                  <span>Load earlier messages ({olderCount} more)</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {!hasMoreOlder && totalCount > INITIAL_PAGE_SIZE && (
+          <div className="flex justify-center my-2 animate-in fade-in">
+            <span className="bg-[#E7E2D8] text-zinc-500 text-[9px] font-bold px-2.5 py-0.5 rounded-full shadow-2xs">
+              Beginning of chat history • All {totalCount} messages loaded
+            </span>
+          </div>
+        )}
+
         {/* Chat Messages List */}
         {chatSpots.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -171,7 +345,7 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
             </p>
           </div>
         ) : (
-          chatSpots.map((spot) => {
+          visibleSpots.map((spot) => {
             const isUserSelf = userProfile && (
               spot.finderHandle === userProfile.handle ||
               spot.finderName.toLowerCase() === userProfile.name.toLowerCase()
