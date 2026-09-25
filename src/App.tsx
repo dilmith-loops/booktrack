@@ -10,6 +10,7 @@ import { RegistrationWindow } from './components/RegistrationWindow';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { FeatureDemoTour } from './components/FeatureDemoTour';
+import { PromotionsCarousel } from './components/PromotionsCarousel';
 import { Stall, BookSpotting, UserProfile, Announcement, ModerationSettings } from './types';
 import { BMICH_STALLS } from './data/initialData';
 import { apiFetch } from './utils/api';
@@ -1313,15 +1314,8 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="bg-white p-3.5 rounded-2xl border border-zinc-200 shadow-xs space-y-3">
-                <div className="flex items-center gap-2 font-black text-xs text-zinc-900">
-                  <Sparkles className="w-4 h-4 text-[#F37021]" />
-                  <span>10% to 25% Instant Savings</span>
-                </div>
-                <p className="text-xs text-zinc-600 font-medium leading-relaxed">
-                  Pay with your Sampath Bank Visa, Mastercard, or Ultra Rewards card at Sarasavi, M.D. Gunasena, Vijitha Yapa, Expographic, and 100+ participating BMICH book stalls.
-                </p>
-              </div>
+              {/* Promotion Flyers Carousel & Instant Savings Notice */}
+              <PromotionsCarousel />
 
               <div className="bg-white p-3.5 rounded-2xl border border-zinc-200 shadow-xs space-y-2.5">
                 <h4 className="text-xs font-black text-zinc-900 uppercase tracking-wider">
