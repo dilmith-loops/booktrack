@@ -617,14 +617,26 @@ class AuthController extends Controller
         $smtpPass = config('mail.mailers.smtp.password');
 
         $targetPassword = request()->input('password', request()->query('password', $smtpPass));
-        $expectedMd5 = 'e5b5b293a837ec068c486f53231497f1';
-        $actualMd5 = md5((string) $targetPassword);
-        $isPasswordMatched = ($actualMd5 === $expectedMd5);
+        $configuredHost = config('mail.mailers.smtp.host', 'smtp.gmail.com');
+        $configuredPort = (int) config('mail.mailers.smtp.port', 587);
+        $configuredScheme = config('mail.mailers.smtp.scheme', 'smtp');
 
         $candidates = [
-            'hostinger_465_ssl' => [
-                'name' => 'Hostinger on Port 465 (Direct SSL)',
-                'host' => 'smtp.hostinger.com',
+            'configured_smtp' => [
+                'name' => "Configured Host ({$configuredHost}:{$configuredPort})",
+                'host' => $configuredHost,
+                'port' => $configuredPort,
+                'scheme' => $configuredScheme,
+            ],
+            'gmail_587_tls' => [
+                'name' => 'Gmail SMTP on Port 587 (TLS/STARTTLS)',
+                'host' => 'smtp.gmail.com',
+                'port' => 587,
+                'scheme' => 'smtp',
+            ],
+            'gmail_465_ssl' => [
+                'name' => 'Gmail SMTP on Port 465 (Direct SSL)',
+                'host' => 'smtp.gmail.com',
                 'port' => 465,
                 'scheme' => 'smtps',
             ],
@@ -648,7 +660,7 @@ class AuthController extends Controller
         $html = self::buildOtpEmailHtml('Tester', $testCode, 'Diagnostic Matrix Code');
         $plain = "Diagnostic Matrix Test: {$testCode}";
 
-        $dnsIp = gethostbyname('smtp.hostinger.com');
+        $dnsIp = gethostbyname($configuredHost);
         $serverHostname = gethostname() ?: 'unknown';
 
         foreach ($candidates as $key => $target) {
@@ -717,7 +729,6 @@ class AuthController extends Controller
                 'recipient' => $recipientEmail,
                 'smtp_username' => $smtpUser,
                 'password_length' => strlen((string) $targetPassword),
-                'password_matches_correct_hash' => $isPasswordMatched,
                 'password_preview' => substr((string) $targetPassword, 0, 3) . '...' . substr((string) $targetPassword, -3),
             ],
             'matrix_results' => $results,
