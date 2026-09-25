@@ -102,8 +102,8 @@ export function useNotifications(
           message: ann.message,
           senderName: 'BMICH Organizing Committee',
           senderHandle: '@cibf_official',
-          timestamp: ann.timestamp || Date.now(),
-          timeAgo: formatNotificationTime(ann.timestamp || Date.now())
+          timestamp: ann.timestamp || ann.createdAt || Date.now(),
+          timeAgo: formatNotificationTime(ann.timestamp || ann.createdAt || Date.now())
         });
       });
     }

@@ -44,6 +44,27 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<PwaTab>('chat');
   const [showFeatureTour, setShowFeatureTour] = useState(false);
 
+  // Track IDs of spots the user has already viewed in the chat feed
+  const [viewedSpotIds, setViewedSpotIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('sampath_viewed_spot_ids');
+      if (saved) {
+        const arr = JSON.parse(saved);
+        if (Array.isArray(arr)) return new Set(arr);
+      }
+    } catch {}
+    return new Set();
+  });
+
+  // Track the timestamp when the user last checked the chat feed
+  const [lastViewedChatTime, setLastViewedChatTime] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('sampath_last_viewed_chat_time');
+      if (saved) return Number(saved);
+    } catch {}
+    return Date.now();
+  });
+
   const checkIsAdminRoute = () => {
     return (
       window.location.pathname.toLowerCase().includes('admin') ||
@@ -294,8 +315,79 @@ export default function App() {
     markAllAsRead
   } = useNotifications(spots, userProfile, announcements);
 
+  // Mark all current spots as viewed whenever user is actively on the chat feed tab
+  useEffect(() => {
+    if (activeTab === 'chat' && spots.length > 0) {
+      const now = Date.now();
+      setLastViewedChatTime(now);
+      try {
+        localStorage.setItem('sampath_last_viewed_chat_time', String(now));
+      } catch {}
+
+      setViewedSpotIds((prev) => {
+        let hasNew = false;
+        const next = new Set(prev);
+        spots.forEach((s) => {
+          if (!next.has(s.id)) {
+            next.add(s.id);
+            hasNew = true;
+          }
+        });
+        if (hasNew) {
+          try {
+            const arr = Array.from(next).slice(-500);
+            localStorage.setItem('sampath_viewed_spot_ids', JSON.stringify(arr));
+          } catch {}
+          return next;
+        }
+        return prev;
+      });
+    }
+  }, [activeTab, spots]);
+
+  const handleSelectTab = (tab: PwaTab) => {
+    if (tab === 'chat') {
+      const now = Date.now();
+      setLastViewedChatTime(now);
+      try {
+        localStorage.setItem('sampath_last_viewed_chat_time', String(now));
+      } catch {}
+
+      setViewedSpotIds((prev) => {
+        let hasNew = false;
+        const next = new Set(prev);
+        spots.forEach((s) => {
+          if (!next.has(s.id)) {
+            next.add(s.id);
+            hasNew = true;
+          }
+        });
+        if (hasNew) {
+          try {
+            const arr = Array.from(next).slice(-500);
+            localStorage.setItem('sampath_viewed_spot_ids', JSON.stringify(arr));
+          } catch {}
+          return next;
+        }
+        return prev;
+      });
+    }
+    setActiveTab(tab);
+  };
+
+  // Compute unread spots in chat feed (0 when viewing chat tab)
+  const unreadChatCount = useMemo(() => {
+    if (activeTab === 'chat') return 0;
+    return spots.filter(
+      (s) =>
+        !s.isArchived &&
+        !viewedSpotIds.has(s.id) &&
+        (s.finderHandle ? s.finderHandle !== userProfile?.handle : true)
+    ).length;
+  }, [activeTab, spots, viewedSpotIds, userProfile?.handle]);
+
   const handleSelectNotification = (spotId?: string) => {
-    setActiveTab('chat');
+    handleSelectTab('chat');
     setSelectedHallFilter('all');
     if (spotId) {
       setHighlightedSpotId(spotId);
@@ -323,7 +415,7 @@ export default function App() {
     if (isMaintenanceMode) return;
     setShowSplash(false);
     if (userProfile) {
-      setActiveTab('chat');
+      handleSelectTab('chat');
     } else {
       setShowRegistration(true);
     }
@@ -393,6 +485,15 @@ export default function App() {
 
   const handleSpotAdded = (newSpot: BookSpotting) => {
     setSpots((prev) => [newSpot, ...prev]);
+    setViewedSpotIds((prev) => {
+      const next = new Set(prev);
+      next.add(newSpot.id);
+      try {
+        const arr = Array.from(next).slice(-500);
+        localStorage.setItem('sampath_viewed_spot_ids', JSON.stringify(arr));
+      } catch {}
+      return next;
+    });
     // Save to user's authored spots so replies trigger notifications
     try {
       const saved = localStorage.getItem('sampath_my_posted_spots');
@@ -408,7 +509,7 @@ export default function App() {
       stall_name: newSpot.stallName,
       is_request: newSpot.postType === 'request',
     });
-    setActiveTab('chat');
+    handleSelectTab('chat');
   };
 
   const handleUpvoteSpot = async (spotId: string) => {
@@ -911,7 +1012,7 @@ export default function App() {
             setShowRegistration(false);
             setShowSplash(false);
             setDisabledAccountAlert(null);
-            setActiveTab('chat');
+            handleSelectTab('chat');
             setRegisteredUsers((prev) => [...prev.filter(u => u.handle !== profile.handle), profile]);
             trackEvent('login', { method: 'profile', role: profile.role || 'user' });
           }}
@@ -974,7 +1075,7 @@ export default function App() {
         <FeatureDemoTour
           isOpen={showFeatureTour}
           onClose={() => setShowFeatureTour(false)}
-          onNavigateTab={(tab) => setActiveTab(tab)}
+          onNavigateTab={(tab) => handleSelectTab(tab)}
         />
 
         {/* ONLY AUTHENTICATED USERS CAN VIEW CHAT, HEADER, RADAR, STALLS, PERKS, AND NAVIGATION */}
@@ -1194,8 +1295,8 @@ export default function App() {
         {/* 4. Native PWA Mobile Bottom Navigation Bar */}
         <PwaBottomNav
           activeTab={activeTab}
-          onSelectTab={setActiveTab}
-          spotsCount={spots.length}
+          onSelectTab={handleSelectTab}
+          unreadChatCount={unreadChatCount}
           onOpenPostModal={() => {
             setInitialBookForModal('');
             setIsPostModalOpen(true);

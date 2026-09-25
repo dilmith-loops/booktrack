@@ -6,16 +6,22 @@ export type PwaTab = 'chat' | 'radar' | 'stalls' | 'perks';
 interface PwaBottomNavProps {
   activeTab: PwaTab;
   onSelectTab: (tab: PwaTab) => void;
-  spotsCount: number;
+  unreadChatCount?: number;
+  spotsCount?: number;
   onOpenPostModal: () => void;
 }
 
 export const PwaBottomNav: React.FC<PwaBottomNavProps> = ({
   activeTab,
   onSelectTab,
+  unreadChatCount = 0,
   spotsCount,
   onOpenPostModal
 }) => {
+  // When actively viewing the chat feed tab, the unread badge is 0 (hidden).
+  // On other tabs, it displays the count of unread/new spots since the user last checked the feed.
+  const badgeCount = activeTab === 'chat' ? 0 : Math.max(0, unreadChatCount ?? 0);
+
   return (
     <nav
       id="pwa-bottom-navigation"
@@ -33,9 +39,9 @@ export const PwaBottomNav: React.FC<PwaBottomNavProps> = ({
         >
           <div className="relative">
             <MessageSquare className="w-5 h-5" strokeWidth={activeTab === 'chat' ? 2.5 : 2} />
-            {spotsCount > 0 && (
-              <span className="absolute -top-1 -right-2 bg-[#F37021] text-white text-[9px] font-black px-1.5 py-0.2 rounded-full min-w-[16px] text-center border border-white">
-                {spotsCount > 99 ? '99+' : spotsCount}
+            {badgeCount > 0 && (
+              <span className="absolute -top-1 -right-2 bg-[#F37021] text-white text-[9px] font-black px-1.5 py-0.2 rounded-full min-w-[16px] text-center border border-white animate-in zoom-in-75 duration-150">
+                {badgeCount > 99 ? '99+' : badgeCount}
               </span>
             )}
           </div>

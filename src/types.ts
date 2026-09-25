@@ -94,6 +94,8 @@ export interface Announcement {
   createdAt: number;
   isActive: boolean;
   publishedBy?: string;
+  title?: string;
+  timestamp?: number;
 }
 
 export interface AppNotification {
