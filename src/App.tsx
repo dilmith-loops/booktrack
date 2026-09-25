@@ -524,34 +524,10 @@ export default function App() {
     setActiveTab(tab);
   };
 
-  // Dynamic SEO Page Title & Meta Description Synchronization
+  // Set page title cleanly to Sampath Book Finder
   useEffect(() => {
-    let title = 'Colombo Book Fair 2026 | Sampath Book Finder';
-    let desc = 'Official Sampath Book Finder for Colombo Book Fair 2026 at BMICH. Find 400+ stalls, live book sightings, and exclusive Sampath Bank discounts.';
-
-    if (showAdminModal) {
-      title = 'Admin Control Center | Sampath Book Finder';
-      desc = 'Administration portal for Colombo International Book Fair 2026 book radar, stalls directory, and notices.';
-    } else if (activeTab === 'stalls') {
-      title = 'BMICH Stalls & Hall Map | Book Fair 2026';
-      desc = 'Browse 400+ publisher stalls across BMICH Halls A–P. Search by hall, publisher, or category with interactive stall locator.';
-    } else if (activeTab === 'radar') {
-      title = 'Live Book Radar & Sightings | CIBF 2026';
-      desc = 'Real-time community book sightings at BMICH Book Fair 2026. Discover where books are found, shelf notes, and live stock statuses.';
-    } else if (activeTab === 'perks') {
-      title = 'Sampath Card Perks & Deals | CIBF 2026';
-      desc = 'Exclusive 15%–30% discounts for Sampath Bank cardholders across participating publisher stalls at Colombo Book Fair 2026.';
-    } else if (activeTab === 'chat') {
-      title = 'Community Chat & Fair Notices | CIBF 2026';
-      desc = 'Join the live community conversation, ask for book locations, and get instant broadcast notices at BMICH Book Fair 2026.';
-    }
-
-    document.title = title;
-    const metaDesc = document.querySelector('meta[name="description"]');
-    if (metaDesc) {
-      metaDesc.setAttribute('content', desc);
-    }
-  }, [activeTab, showAdminModal]);
+    document.title = 'Sampath Book Finder';
+  }, []);
 
   // Compute unread spots in chat feed (0 when viewing chat tab)
   const unreadChatCount = useMemo(() => {
