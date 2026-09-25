@@ -61,6 +61,8 @@ export default function App() {
   const [selectedHallFilter, setSelectedHallFilter] = useState('All Halls');
   const [activeTab, setActiveTab] = useState<PwaTab>('chat');
   const [showFeatureTour, setShowFeatureTour] = useState(false);
+  // Key to force refresh CommunityFeed to latest 10 messages and point to last message
+  const [chatRefreshKey, setChatRefreshKey] = useState<number>(0);
 
   // Track IDs of spots the user has already viewed in the chat feed
   const [viewedSpotIds, setViewedSpotIds] = useState<Set<string>>(() => {
@@ -633,6 +635,7 @@ export default function App() {
 
   const handleSpotAdded = (newSpot: BookSpotting) => {
     setSpots((prev) => [newSpot, ...prev]);
+    setChatRefreshKey((prev) => prev + 1);
     setViewedSpotIds((prev) => {
       const next = new Set(prev);
       next.add(newSpot.id);
@@ -763,6 +766,7 @@ export default function App() {
 
   const handleDeleteSpot = async (spotId: string, userHandle?: string) => {
     setSpots((prev) => prev.filter((s) => s.id !== spotId));
+    setChatRefreshKey((prev) => prev + 1);
     try {
       await apiFetch(`/api/spots/${spotId}`, {
         method: 'DELETE',
@@ -771,6 +775,7 @@ export default function App() {
           userHandle: userHandle || userProfile?.handle
         })
       });
+      pollLatestSpots();
     } catch (err) {
       console.error('Error deleting spot from database:', err);
     }
@@ -790,6 +795,7 @@ export default function App() {
           : s
       )
     );
+    setChatRefreshKey((prev) => prev + 1);
     try {
       await apiFetch(`/api/spots/${spotId}/archive`, {
         method: 'POST',
@@ -881,6 +887,7 @@ export default function App() {
 
   const handleAddSpot = (newSpot: BookSpotting) => {
     setSpots((prev) => [newSpot, ...prev]);
+    setChatRefreshKey((prev) => prev + 1);
   };
 
   const handleAddStall = async (newStall: Stall) => {
@@ -1274,6 +1281,7 @@ export default function App() {
               spots={spots.filter((s) => !s.isArchived)}
               selectedHallFilter={selectedHallFilter}
               onSelectHallFilter={setSelectedHallFilter}
+              chatRefreshKey={chatRefreshKey}
               onOpenNewSpotModal={(title?: string, replySpot?: BookSpotting) => {
                 setInitialBookForModal(title || '');
                 setReplyingToSpot(replySpot || null);

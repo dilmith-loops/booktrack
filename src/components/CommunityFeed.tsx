@@ -32,6 +32,7 @@ interface CommunityFeedProps {
   onArchiveSpot?: (spotId: string, userHandle?: string) => void;
   onDeleteSpot?: (spotId: string, userHandle?: string) => void;
   highlightedSpotId?: string | null;
+  chatRefreshKey?: number;
 }
 
 export const CommunityFeed: React.FC<CommunityFeedProps> = ({
@@ -47,7 +48,8 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
   onQuickSpotSubmit,
   onArchiveSpot,
   onDeleteSpot,
-  highlightedSpotId
+  highlightedSpotId,
+  chatRefreshKey
 }) => {
   // Track local user ratings { [spotId]: score }
   const [userRatings, setUserRatings] = useState<Record<string, number>>(() => {
@@ -113,6 +115,17 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
   const hasMoreOlder = startIndex > 0;
   const olderCount = startIndex;
 
+  // Helper to reliably scroll to the last message at the bottom
+  const scrollToLastMessage = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior, block: 'end' });
+    }
+    window.scrollTo({
+      top: document.documentElement.scrollHeight,
+      behavior
+    });
+  }, []);
+
   // Show loading animation in the chat until the first 10 messages are loaded
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -126,9 +139,9 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
     if (isInitialLoading) return;
 
     if (!highlightedSpotId && !hasInitialScrolledRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      scrollToLastMessage('auto');
       const t1 = setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        scrollToLastMessage('auto');
       }, 100);
       const t2 = setTimeout(() => {
         hasInitialScrolledRef.current = true;
@@ -138,9 +151,39 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
         clearTimeout(t2);
       };
     }
-  }, [isInitialLoading, highlightedSpotId]);
+  }, [isInitialLoading, highlightedSpotId, scrollToLastMessage]);
 
-  // When newly submitted messages arrive, increase visible count and scroll to bottom if already near bottom
+  // Automatically refresh chat feed with the latest 10 messages and show the last message
+  // when the user adds a post by themselves or deletes/archives their own post
+  useEffect(() => {
+    if (!chatRefreshKey) return;
+
+    // Reset pagination to latest 10 messages
+    setVisibleCount(INITIAL_PAGE_SIZE);
+    previousSpotsLengthRef.current = spots.length;
+    setIsInitialLoading(true);
+
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+      requestAnimationFrame(() => {
+        scrollToLastMessage('smooth');
+      });
+      const t1 = setTimeout(() => {
+        scrollToLastMessage('smooth');
+      }, 80);
+      const t2 = setTimeout(() => {
+        scrollToLastMessage('auto');
+      }, 250);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }, 380);
+
+    return () => clearTimeout(timer);
+  }, [chatRefreshKey, scrollToLastMessage, spots.length]);
+
+  // When background/server polling brings new messages (and not during refresh or initial load)
   useEffect(() => {
     if (isInitialLoading) return;
     if (highlightedSpotId) return;
@@ -152,11 +195,11 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
       const isNearBottom =
         window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 350;
       if (isNearBottom) {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        scrollToLastMessage('smooth');
       }
     }
     previousSpotsLengthRef.current = spots.length;
-  }, [spots.length, isInitialLoading, highlightedSpotId]);
+  }, [spots.length, isInitialLoading, highlightedSpotId, scrollToLastMessage]);
 
   // Scroll to highlighted spot when notification is clicked, expanding visible window if needed
   useEffect(() => {
