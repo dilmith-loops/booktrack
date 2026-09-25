@@ -383,6 +383,7 @@ export default function App() {
   // Post modal & Lightbox
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [initialBookForModal, setInitialBookForModal] = useState('');
+  const [initialStallIdForModal, setInitialStallIdForModal] = useState('');
   const [replyingToSpot, setReplyingToSpot] = useState<BookSpotting | null>(null);
   const [highlightedSpotId, setHighlightedSpotId] = useState<string | null>(null);
 
@@ -741,8 +742,9 @@ export default function App() {
     }
   };
 
-  const handleOpenNewSpotWithTitle = (title: string) => {
+  const handleOpenNewSpotWithTitle = (title: string, stallId?: string) => {
     setInitialBookForModal(title);
+    setInitialStallIdForModal(stallId || '');
     setIsPostModalOpen(true);
   };
 
@@ -1308,6 +1310,7 @@ export default function App() {
               chatRefreshKey={chatRefreshKey}
               onOpenNewSpotModal={(title?: string, replySpot?: BookSpotting) => {
                 setInitialBookForModal(title || '');
+                setInitialStallIdForModal('');
                 setReplyingToSpot(replySpot || null);
                 setIsPostModalOpen(true);
               }}
@@ -1406,6 +1409,7 @@ export default function App() {
                     <button
                       onClick={() => {
                         setInitialBookForModal('');
+                        setInitialStallIdForModal(stall.id);
                         setIsPostModalOpen(true);
                       }}
                       className="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 text-[#EA580C] text-[10px] font-black rounded-lg border border-orange-200 flex-shrink-0 cursor-pointer"
@@ -1474,6 +1478,7 @@ export default function App() {
           unreadChatCount={unreadChatCount}
           onOpenPostModal={() => {
             setInitialBookForModal('');
+            setInitialStallIdForModal('');
             setIsPostModalOpen(true);
           }}
         />
@@ -1497,10 +1502,13 @@ export default function App() {
           onClose={() => {
             setIsPostModalOpen(false);
             setReplyingToSpot(null);
+            setInitialBookForModal('');
+            setInitialStallIdForModal('');
           }}
           stalls={visibleStalls}
           existingSpots={spots}
           initialBookTitle={initialBookForModal}
+          initialStallId={initialStallIdForModal}
           replyToSpot={replyingToSpot}
           userProfile={userProfile}
           onSpotAdded={handleSpotAdded}

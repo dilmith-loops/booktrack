@@ -13,6 +13,7 @@ interface PostBookSpotModalProps {
   stalls: Stall[];
   existingSpots: BookSpotting[];
   initialBookTitle?: string;
+  initialStallId?: string;
   replyToSpot?: BookSpotting | null;
   userProfile?: UserProfile | null;
   onSpotAdded: (newSpot: BookSpotting) => void;
@@ -26,6 +27,7 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
   stalls,
   existingSpots,
   initialBookTitle = '',
+  initialStallId = '',
   replyToSpot,
   userProfile,
   onSpotAdded,
@@ -39,7 +41,7 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
   const [requestNotes, setRequestNotes] = useState('');
   const [isFound, setIsFound] = useState(false);
   const [spotNotes, setSpotNotes] = useState('');
-  const [selectedStallId, setSelectedStallId] = useState('');
+  const [selectedStallId, setSelectedStallId] = useState(initialStallId);
   const [customStallName, setCustomStallName] = useState('');
   const [customHall, setCustomHall] = useState('');
   const [images, setImages] = useState<string[]>([]);
@@ -93,12 +95,20 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
     onClose();
   };
 
-  // Sync initialBookTitle on open
+  // Sync initialBookTitle and initialStallId on open
   useEffect(() => {
-    if (isOpen && initialBookTitle) {
-      setBookName(initialBookTitle);
+    if (isOpen) {
+      if (initialBookTitle) {
+        setBookName(initialBookTitle);
+      }
+      if (initialStallId) {
+        setSelectedStallId(initialStallId);
+        setModalMode('spot');
+      } else {
+        setSelectedStallId('');
+      }
     }
-  }, [isOpen, initialBookTitle]);
+  }, [isOpen, initialBookTitle, initialStallId]);
 
   // Check if book was already found
   useEffect(() => {
