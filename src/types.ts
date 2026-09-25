@@ -121,4 +121,13 @@ export interface MaintenanceSettings {
   updatedAt?: string;
 }
 
+export interface ModerationSettings {
+  profanityFilter: boolean;
+  aiSpotVerification: boolean;
+  imageGuardian: boolean;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+
 

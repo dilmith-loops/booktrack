@@ -15,6 +15,51 @@ class ModerationService
     }
 
     /**
+     * Check if Multilingual Profanity Filter is active.
+     */
+    public function isProfanityFilterEnabled(): bool
+    {
+        $filePath = storage_path('app/moderation_settings.json');
+        if (file_exists($filePath)) {
+            $data = json_decode(file_get_contents($filePath), true);
+            if (is_array($data) && isset($data['profanityFilter'])) {
+                return (bool) $data['profanityFilter'];
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Check if Image Multimodal Guardian is active.
+     */
+    public function isImageGuardianEnabled(): bool
+    {
+        $filePath = storage_path('app/moderation_settings.json');
+        if (file_exists($filePath)) {
+            $data = json_decode(file_get_contents($filePath), true);
+            if (is_array($data) && isset($data['imageGuardian'])) {
+                return (bool) $data['imageGuardian'];
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Check if Auto AI Spot Verification is active.
+     */
+    public function isAiSpotVerificationEnabled(): bool
+    {
+        $filePath = storage_path('app/moderation_settings.json');
+        if (file_exists($filePath)) {
+            $data = json_decode(file_get_contents($filePath), true);
+            if (is_array($data) && isset($data['aiSpotVerification'])) {
+                return (bool) $data['aiSpotVerification'];
+            }
+        }
+        return true;
+    }
+
+    /**
      * Authentic Sinhala, Singlish, and literary vocabulary that should NEVER be flagged as gibberish
      */
     protected const AUTHENTIC_SINHALA_SINGLISH_VOCAB = [
@@ -141,6 +186,10 @@ class ModerationService
      */
     public function checkLocalProfanity(string $text): array
     {
+        if (!$this->isProfanityFilterEnabled()) {
+            return ['isClean' => true];
+        }
+
         if (trim($text) === '') {
             return ['isClean' => true];
         }
@@ -315,6 +364,10 @@ class ModerationService
         ?string $finderName = null,
         ?string $stallName = null
     ): array {
+        if (!$this->isProfanityFilterEnabled()) {
+            return ['isClean' => true];
+        }
+
         $combinedText = implode(' ', array_filter([
             $bookName, $notes, $shelfLocationNote, $priceOrOffer, $finderName, $stallName
         ]));
@@ -468,6 +521,10 @@ PROMPT;
      */
     public function moderateImage(?string $imageDataUrlOrUrl): array
     {
+        if (!$this->isImageGuardianEnabled()) {
+            return ['isClean' => true];
+        }
+
         if (empty($imageDataUrlOrUrl)) {
             return ['isClean' => true];
         }

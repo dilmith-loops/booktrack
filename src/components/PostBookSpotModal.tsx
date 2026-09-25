@@ -15,6 +15,8 @@ interface PostBookSpotModalProps {
   replyToSpot?: BookSpotting | null;
   userProfile?: UserProfile | null;
   onSpotAdded: (newSpot: BookSpotting) => void;
+  isProfanityFilterEnabled?: boolean;
+  isImageGuardianEnabled?: boolean;
 }
 
 export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
@@ -25,7 +27,9 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
   initialBookTitle = '',
   replyToSpot,
   userProfile,
-  onSpotAdded
+  onSpotAdded,
+  isProfanityFilterEnabled = true,
+  isImageGuardianEnabled = true
 }) => {
   const [modalMode, setModalMode] = useState<'spot' | 'request'>('spot');
   const [bookName, setBookName] = useState(initialBookTitle);
@@ -111,23 +115,25 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
   }, [bookName, existingSpots]);
 
   // Real-time multilingual profanity check across English, Sinhala, Singlish, Tamil, & Tanglish
-  const bookNameViolation = checkLocalProfanity(bookName);
-  const authorViolation = modalMode === 'request' ? checkLocalProfanity(authorName) : { isClean: true };
-  const notesViolation = modalMode === 'request'
-    ? checkLocalProfanity(requestNotes)
-    : checkLocalProfanity(spotNotes);
-  const locationViolation = modalMode === 'spot' ? checkLocalProfanity(shelfLocationNote) : { isClean: true };
-  const otherFieldsViolation = checkLocalProfanity(customStallName);
+  const bookNameViolation = isProfanityFilterEnabled ? checkLocalProfanity(bookName) : { isClean: true };
+  const authorViolation = isProfanityFilterEnabled && modalMode === 'request' ? checkLocalProfanity(authorName) : { isClean: true };
+  const notesViolation = isProfanityFilterEnabled
+    ? (modalMode === 'request' ? checkLocalProfanity(requestNotes) : checkLocalProfanity(spotNotes))
+    : { isClean: true };
+  const locationViolation = isProfanityFilterEnabled && modalMode === 'spot' ? checkLocalProfanity(shelfLocationNote) : { isClean: true };
+  const otherFieldsViolation = isProfanityFilterEnabled ? checkLocalProfanity(customStallName) : { isClean: true };
 
-  const localViolation = !bookNameViolation.isClean
-    ? bookNameViolation
-    : !authorViolation.isClean
-    ? authorViolation
-    : !notesViolation.isClean
-    ? notesViolation
-    : !locationViolation.isClean
-    ? locationViolation
-    : otherFieldsViolation;
+  const localViolation = isProfanityFilterEnabled
+    ? (!bookNameViolation.isClean
+        ? bookNameViolation
+        : !authorViolation.isClean
+        ? authorViolation
+        : !notesViolation.isClean
+        ? notesViolation
+        : !locationViolation.isClean
+        ? locationViolation
+        : otherFieldsViolation)
+    : { isClean: true };
 
   if (!isOpen) return null;
 
@@ -151,31 +157,33 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
       for (const file of filesToProcess) {
         const dataUrl = await fileToDataUrl(file);
 
-        // 1. Instant Client-Side Safety Shield (Canvas Skin-Tone & Nudity Inspection)
-        const clientCheck = await analyzeImageClientSafety(dataUrl);
-        if (!clientCheck.isClean) {
-          setAiBlockedReason(
-            `Sampath AI Safety Shield: Photo blocked. ${clientCheck.reason || 'Excessive skin exposure or policy-violating imagery detected. Only photos of books, covers, or bookstore stalls are permitted.'}`
-          );
-          continue;
-        }
-
-        // 2. Server-side AI Vision & Local GD validation
-        try {
-          const modRes = await apiFetch('/api/moderate-image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: dataUrl })
-          });
-          const modData = await modRes.json();
-          if (!modData.isClean) {
+        if (isImageGuardianEnabled) {
+          // 1. Instant Client-Side Safety Shield (Canvas Skin-Tone & Nudity Inspection)
+          const clientCheck = await analyzeImageClientSafety(dataUrl);
+          if (!clientCheck.isClean) {
             setAiBlockedReason(
-              `Sampath AI Image Shield: Photo blocked. ${modData.reason || 'Image violates safe community guidelines (excessive skin exposure, swimwear, or policy-violating content detected).'}`
+              `Sampath AI Safety Shield: Photo blocked. ${clientCheck.reason || 'Excessive skin exposure or policy-violating imagery detected. Only photos of books, covers, or bookstore stalls are permitted.'}`
             );
             continue;
           }
-        } catch (err) {
-          console.warn('Image moderation API warning:', err);
+
+          // 2. Server-side AI Vision & Local GD validation
+          try {
+            const modRes = await apiFetch('/api/moderate-image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: dataUrl })
+            });
+            const modData = await modRes.json();
+            if (!modData.isClean) {
+              setAiBlockedReason(
+                `Sampath AI Image Shield: Photo blocked. ${modData.reason || 'Image violates safe community guidelines (excessive skin exposure, swimwear, or policy-violating content detected).'}`
+              );
+              continue;
+            }
+          } catch (err) {
+            console.warn('Image moderation API warning:', err);
+          }
         }
 
         accepted.push(dataUrl);

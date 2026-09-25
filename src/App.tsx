@@ -10,7 +10,7 @@ import { RegistrationWindow } from './components/RegistrationWindow';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { FeatureDemoTour } from './components/FeatureDemoTour';
-import { Stall, BookSpotting, UserProfile, Announcement } from './types';
+import { Stall, BookSpotting, UserProfile, Announcement, ModerationSettings } from './types';
 import { BMICH_STALLS } from './data/initialData';
 import { apiFetch } from './utils/api';
 import { useNotifications } from './hooks/useNotifications';
@@ -203,6 +203,65 @@ export default function App() {
       });
     } catch (err) {
       console.error('Failed to sync maintenance status to server', err);
+    }
+  };
+
+  // AI Moderation & Profanity Filter Settings
+  const [moderationSettings, setModerationSettings] = useState<ModerationSettings>(() => {
+    try {
+      const saved = localStorage.getItem('sampath_moderation_settings');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {}
+    return {
+      profanityFilter: true,
+      aiSpotVerification: true,
+      imageGuardian: true
+    };
+  });
+
+  const checkModerationStatus = async () => {
+    try {
+      const res = await apiFetch('/api/settings/moderation');
+      if (res.ok) {
+        const data = await res.json();
+        const settings: ModerationSettings = {
+          profanityFilter: data.profanityFilter !== false,
+          aiSpotVerification: data.aiSpotVerification !== false,
+          imageGuardian: data.imageGuardian !== false,
+          updatedAt: data.updatedAt
+        };
+        setModerationSettings(settings);
+        localStorage.setItem('sampath_moderation_settings', JSON.stringify(settings));
+      }
+    } catch {
+      // Keep existing local state on network error
+    }
+  };
+
+  useEffect(() => {
+    checkModerationStatus();
+    const interval = setInterval(checkModerationStatus, 20000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleUpdateModerationSettings = async (nextSettings: ModerationSettings) => {
+    setModerationSettings(nextSettings);
+    localStorage.setItem('sampath_moderation_settings', JSON.stringify(nextSettings));
+
+    try {
+      const token = sessionStorage.getItem('sampath_admin_token') || '';
+      await apiFetch('/api/settings/moderation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': token
+        },
+        body: JSON.stringify(nextSettings)
+      });
+    } catch (err) {
+      console.error('Failed to sync moderation settings to server', err);
     }
   };
 
@@ -1069,6 +1128,8 @@ export default function App() {
           onToggleHideStall={handleToggleHideStall}
           onImportStalls={handleImportStalls}
           onRefreshStalls={loadData}
+          moderationSettings={moderationSettings}
+          onUpdateModerationSettings={handleUpdateModerationSettings}
         />
 
         {/* 4. Interactive Feature Demo Tour */}
@@ -1329,6 +1390,8 @@ export default function App() {
           replyToSpot={replyingToSpot}
           userProfile={userProfile}
           onSpotAdded={handleSpotAdded}
+          isProfanityFilterEnabled={moderationSettings.profanityFilter}
+          isImageGuardianEnabled={moderationSettings.imageGuardian}
         />
 
         <PhotoLightboxModal

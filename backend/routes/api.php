@@ -31,9 +31,11 @@ Route::prefix('admin')->group(function () {
     Route::post('/migrate', [AdminController::class, 'runMigrations']);
 });
 
-// System Settings & Maintenance Mode
+// System Settings, Moderation & Maintenance Mode
 Route::get('/settings/maintenance', [AdminController::class, 'getMaintenanceStatus']);
 Route::post('/settings/maintenance', [AdminController::class, 'setMaintenanceMode']);
+Route::get('/settings/moderation', [AdminController::class, 'getModerationSettings']);
+Route::post('/settings/moderation', [AdminController::class, 'setModerationSettings']);
 
 
 // Registered Users Management (Admin protected)

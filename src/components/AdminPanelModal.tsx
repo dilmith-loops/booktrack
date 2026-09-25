@@ -22,7 +22,7 @@ import {
   Power,
   Wrench
 } from 'lucide-react';
-import { Stall, BookSpotting, UserProfile, Announcement } from '../types';
+import { Stall, BookSpotting, UserProfile, Announcement, ModerationSettings } from '../types';
 import { apiFetch } from '../utils/api';
 import { SpotsDataTable } from './SpotsDataTable';
 import { StallsDataTable } from './StallsDataTable';
@@ -55,6 +55,8 @@ interface AdminPanelModalProps {
   onToggleHideStall?: (stallId: string) => void;
   onImportStalls?: (stalls: Stall[], mode: 'replace' | 'append') => Promise<void> | void;
   onRefreshStalls?: () => Promise<void> | void;
+  moderationSettings?: ModerationSettings;
+  onUpdateModerationSettings?: (settings: ModerationSettings) => Promise<void> | void;
 }
 
 type AdminTab = 'overview' | 'spots' | 'stalls' | 'announcements' | 'users';
@@ -85,7 +87,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onToggleMaintenanceMode,
   onToggleHideStall,
   onImportStalls,
-  onRefreshStalls
+  onRefreshStalls,
+  moderationSettings,
+  onUpdateModerationSettings
 }) => {
   const [adminToken, setAdminToken] = useState<string>(() => sessionStorage.getItem('sampath_admin_token') || '');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!sessionStorage.getItem('sampath_admin_token'));
@@ -149,6 +153,99 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       console.error('Failed to save maintenance notice', err);
     } finally {
       setIsSavingMaintenance(false);
+    }
+  };
+
+  // AI Moderation & Safety Settings State
+  const [modSettings, setModSettings] = useState<ModerationSettings>(() => {
+    return moderationSettings || {
+      profanityFilter: true,
+      aiSpotVerification: true,
+      imageGuardian: true
+    };
+  });
+  const [isSavingModeration, setIsSavingModeration] = useState(false);
+  const [moderationFeedback, setModerationFeedback] = useState('');
+
+  React.useEffect(() => {
+    if (moderationSettings) {
+      setModSettings(moderationSettings);
+    }
+  }, [moderationSettings]);
+
+  const handleToggleModerationKey = async (key: keyof ModerationSettings, nextVal: boolean) => {
+    setIsSavingModeration(true);
+    setModerationFeedback('');
+    const updated: ModerationSettings = {
+      ...modSettings,
+      [key]: nextVal
+    };
+    setModSettings(updated);
+
+    try {
+      if (onUpdateModerationSettings) {
+        await onUpdateModerationSettings(updated);
+      } else {
+        const token = sessionStorage.getItem('sampath_admin_token') || adminToken || '';
+        await apiFetch('/api/settings/moderation', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Token': token
+          },
+          body: JSON.stringify(updated)
+        });
+      }
+      const label = key === 'profanityFilter'
+        ? 'Multilingual Profanity Filter'
+        : key === 'aiSpotVerification'
+        ? 'Auto AI Spot Verification'
+        : 'Image Multimodal Guardian';
+      setModerationFeedback(`${label} turned ${nextVal ? 'ON' : 'OFF'}.`);
+      setTimeout(() => setModerationFeedback(''), 4000);
+    } catch (err) {
+      console.error('Failed to update moderation setting', err);
+      setModerationFeedback('Failed to update setting. Please try again.');
+    } finally {
+      setIsSavingModeration(false);
+    }
+  };
+
+  const isAllModerationActive = Boolean(
+    modSettings.profanityFilter && modSettings.aiSpotVerification && modSettings.imageGuardian
+  );
+
+  const handleToggleAllModeration = async () => {
+    const nextState = !isAllModerationActive;
+    setIsSavingModeration(true);
+    setModerationFeedback('');
+    const updated: ModerationSettings = {
+      profanityFilter: nextState,
+      aiSpotVerification: nextState,
+      imageGuardian: nextState
+    };
+    setModSettings(updated);
+
+    try {
+      if (onUpdateModerationSettings) {
+        await onUpdateModerationSettings(updated);
+      } else {
+        const token = sessionStorage.getItem('sampath_admin_token') || adminToken || '';
+        await apiFetch('/api/settings/moderation', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Token': token
+          },
+          body: JSON.stringify(updated)
+        });
+      }
+      setModerationFeedback(`All AI safety filters turned ${nextState ? 'ON' : 'OFF'}.`);
+      setTimeout(() => setModerationFeedback(''), 4000);
+    } catch (err) {
+      console.error('Failed to update all moderation settings', err);
+    } finally {
+      setIsSavingModeration(false);
     }
   };
 
@@ -668,38 +765,231 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 </form>
               </div>
 
-              {/* System Health Status */}
+              {/* System AI Safety & Moderation Controls */}
               <div className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 space-y-4">
-                <h3 className="text-sm font-black uppercase tracking-wider text-zinc-200 flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                  <span>Sampath AI Safety & Moderation Status</span>
-                </h3>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-zinc-800/80">
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-wider text-zinc-200 flex items-center gap-2">
+                      <CheckCircle2 className={`w-5 h-5 ${isAllModerationActive ? 'text-emerald-500' : 'text-amber-500'}`} />
+                      <span>Sampath AI Safety & Moderation Status</span>
+                    </h3>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      Turn ON or OFF automated profanity filters, photo scanning, and spot auto-verification in real time.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {moderationFeedback && (
+                      <span className="text-xs font-bold text-emerald-400 animate-in fade-in mr-1">
+                        {moderationFeedback}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      id="toggle-all-moderation-btn"
+                      disabled={isSavingModeration}
+                      onClick={handleToggleAllModeration}
+                      className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs transition-colors border border-zinc-700 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {isAllModerationActive ? 'Disable All Filters' : 'Enable All Filters'}
+                    </button>
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-1">
-                    <span className="text-xs text-zinc-400 font-medium">Multilingual Profanity Filter</span>
-                    <div className="text-sm font-black text-emerald-400 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      <span>Active & Operational</span>
+                  {/* Card 1: Multilingual Profanity Filter */}
+                  <div
+                    id="profanity-filter-card"
+                    className={`p-4 rounded-xl border transition-all space-y-3 ${
+                      modSettings.profanityFilter
+                        ? 'bg-zinc-950 border-emerald-950/60 ring-1 ring-emerald-500/20'
+                        : 'bg-zinc-950/70 border-amber-950/40 ring-1 ring-amber-500/20'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <span className="text-xs text-zinc-200 font-bold block">
+                          Multilingual Profanity Filter
+                        </span>
+                        <span className="text-[10px] text-zinc-400 block">
+                          English, Sinhala, Singlish, Tamil, & Tanglish
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        id="toggle-profanity-switch"
+                        role="switch"
+                        aria-checked={modSettings.profanityFilter}
+                        disabled={isSavingModeration}
+                        onClick={() => handleToggleModerationKey('profanityFilter', !modSettings.profanityFilter)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#F37021] disabled:opacity-50 ${
+                          modSettings.profanityFilter ? 'bg-emerald-500' : 'bg-zinc-700'
+                        }`}
+                        title={modSettings.profanityFilter ? 'Turn OFF Profanity Filter' : 'Turn ON Profanity Filter'}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                            modSettings.profanityFilter ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-zinc-900">
+                      <div className={`text-xs font-black flex items-center gap-1.5 ${
+                        modSettings.profanityFilter ? 'text-emerald-400' : 'text-amber-400'
+                      }`}>
+                        <span className={`w-2 h-2 rounded-full ${
+                          modSettings.profanityFilter ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                        }`} />
+                        <span>{modSettings.profanityFilter ? 'Active & Operational' : 'Disabled (Bypassed)'}</span>
+                      </div>
+                      <button
+                        type="button"
+                        id="toggle-profanity-btn"
+                        onClick={() => handleToggleModerationKey('profanityFilter', !modSettings.profanityFilter)}
+                        disabled={isSavingModeration}
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded transition-colors cursor-pointer ${
+                          modSettings.profanityFilter
+                            ? 'text-zinc-400 hover:text-rose-400 hover:bg-rose-950/30'
+                            : 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/30'
+                        }`}
+                      >
+                        {modSettings.profanityFilter ? 'Turn OFF' : 'Turn ON'}
+                      </button>
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-1">
-                    <span className="text-xs text-zinc-400 font-medium">Auto AI Spot Verification</span>
-                    <div className="text-sm font-black text-emerald-400 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      <span>Verified Badges Active</span>
+                  {/* Card 2: Auto AI Spot Verification */}
+                  <div
+                    id="ai-verify-card"
+                    className={`p-4 rounded-xl border transition-all space-y-3 ${
+                      modSettings.aiSpotVerification
+                        ? 'bg-zinc-950 border-emerald-950/60 ring-1 ring-emerald-500/20'
+                        : 'bg-zinc-950/70 border-zinc-800'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <span className="text-xs text-zinc-200 font-bold block">
+                          Auto AI Spot Verification
+                        </span>
+                        <span className="text-[10px] text-zinc-400 block">
+                          Auto-verified badges for sightings
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        id="toggle-ai-verify-switch"
+                        role="switch"
+                        aria-checked={modSettings.aiSpotVerification}
+                        disabled={isSavingModeration}
+                        onClick={() => handleToggleModerationKey('aiSpotVerification', !modSettings.aiSpotVerification)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#F37021] disabled:opacity-50 ${
+                          modSettings.aiSpotVerification ? 'bg-emerald-500' : 'bg-zinc-700'
+                        }`}
+                        title={modSettings.aiSpotVerification ? 'Turn OFF Auto AI Verification' : 'Turn ON Auto AI Verification'}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                            modSettings.aiSpotVerification ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-zinc-900">
+                      <div className={`text-xs font-black flex items-center gap-1.5 ${
+                        modSettings.aiSpotVerification ? 'text-emerald-400' : 'text-zinc-500'
+                      }`}>
+                        <span className={`w-2 h-2 rounded-full ${
+                          modSettings.aiSpotVerification ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'
+                        }`} />
+                        <span>{modSettings.aiSpotVerification ? 'Verified Badges Active' : 'Auto-Badging Off'}</span>
+                      </div>
+                      <button
+                        type="button"
+                        id="toggle-ai-verify-btn"
+                        onClick={() => handleToggleModerationKey('aiSpotVerification', !modSettings.aiSpotVerification)}
+                        disabled={isSavingModeration}
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded transition-colors cursor-pointer ${
+                          modSettings.aiSpotVerification
+                            ? 'text-zinc-400 hover:text-rose-400 hover:bg-rose-950/30'
+                            : 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/30'
+                        }`}
+                      >
+                        {modSettings.aiSpotVerification ? 'Turn OFF' : 'Turn ON'}
+                      </button>
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-zinc-950 border border-zinc-800 space-y-1">
-                    <span className="text-xs text-zinc-400 font-medium">Image Multimodal Guardian</span>
-                    <div className="text-sm font-black text-emerald-400 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      <span>Photo Scanning Active</span>
+                  {/* Card 3: Image Multimodal Guardian */}
+                  <div
+                    id="image-guardian-card"
+                    className={`p-4 rounded-xl border transition-all space-y-3 ${
+                      modSettings.imageGuardian
+                        ? 'bg-zinc-950 border-emerald-950/60 ring-1 ring-emerald-500/20'
+                        : 'bg-zinc-950/70 border-zinc-800'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <span className="text-xs text-zinc-200 font-bold block">
+                          Image Multimodal Guardian
+                        </span>
+                        <span className="text-[10px] text-zinc-400 block">
+                          Photo safety & policy inspection
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        id="toggle-image-guardian-switch"
+                        role="switch"
+                        aria-checked={modSettings.imageGuardian}
+                        disabled={isSavingModeration}
+                        onClick={() => handleToggleModerationKey('imageGuardian', !modSettings.imageGuardian)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#F37021] disabled:opacity-50 ${
+                          modSettings.imageGuardian ? 'bg-emerald-500' : 'bg-zinc-700'
+                        }`}
+                        title={modSettings.imageGuardian ? 'Turn OFF Image Guardian' : 'Turn ON Image Guardian'}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                            modSettings.imageGuardian ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-zinc-900">
+                      <div className={`text-xs font-black flex items-center gap-1.5 ${
+                        modSettings.imageGuardian ? 'text-emerald-400' : 'text-zinc-500'
+                      }`}>
+                        <span className={`w-2 h-2 rounded-full ${
+                          modSettings.imageGuardian ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'
+                        }`} />
+                        <span>{modSettings.imageGuardian ? 'Photo Scanning Active' : 'Photo Shield Off'}</span>
+                      </div>
+                      <button
+                        type="button"
+                        id="toggle-image-guardian-btn"
+                        onClick={() => handleToggleModerationKey('imageGuardian', !modSettings.imageGuardian)}
+                        disabled={isSavingModeration}
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded transition-colors cursor-pointer ${
+                          modSettings.imageGuardian
+                            ? 'text-zinc-400 hover:text-rose-400 hover:bg-rose-950/30'
+                            : 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/30'
+                        }`}
+                      >
+                        {modSettings.imageGuardian ? 'Turn OFF' : 'Turn ON'}
+                      </button>
                     </div>
                   </div>
                 </div>
+
+                <p className="text-[11px] text-zinc-500">
+                  Note: Disabling the <strong>Multilingual Profanity Filter</strong> bypasses text moderation, allowing visitors to post without being blocked by word filters. Disabling <strong>Image Multimodal Guardian</strong> allows photo uploads without skin-tone or AI vision vetting.
+                </p>
               </div>
             </div>
           )}

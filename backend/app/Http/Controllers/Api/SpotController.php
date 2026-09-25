@@ -145,7 +145,7 @@ class SpotController extends Controller
                 'notes' => $notes ?: null,
                 'status' => 'Looking for Book',
                 'helpful_count' => 0,
-                'ai_verified' => true,
+                'ai_verified' => $this->moderation->isAiSpotVerificationEnabled(),
                 'is_resolved' => false
             ]);
 
@@ -209,7 +209,7 @@ class SpotController extends Controller
             'helpful_count' => 1,
             'rating_average' => 5.0,
             'rating_count' => 1,
-            'ai_verified' => true,
+            'ai_verified' => $this->moderation->isAiSpotVerificationEnabled(),
             'sampath_card_discount' => $matchedStall?->special_discount ?: 'Eligible for Sampath Cardholder fair offers',
             'reply_to_request_id' => $replyToRequestId ?: null,
             'tagged_requester_name' => $linkedRequesterName ?: null,

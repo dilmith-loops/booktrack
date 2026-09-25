@@ -36,6 +36,13 @@ function getAIClient(): GoogleGenAI | null {
 
 import { checkLocalProfanity } from './src/utils/moderationPatterns';
 
+let moderationSettings = {
+  profanityFilter: true,
+  aiSpotVerification: true,
+  imageGuardian: true,
+  updatedAt: new Date().toISOString()
+};
+
 async function moderateContent(
   bookName: string,
   notes?: string,
@@ -44,6 +51,10 @@ async function moderateContent(
   finderName?: string,
   stallName?: string
 ): Promise<{ isClean: boolean; reason?: string; detectedType?: string }> {
+  if (!moderationSettings.profanityFilter) {
+    return { isClean: true };
+  }
+
   const combinedText = [bookName, notes, shelfLocationNote, priceOrOffer, finderName, stallName]
     .filter(Boolean)
     .join(' ');
@@ -322,6 +333,26 @@ async function startServer() {
     });
   });
 
+  // System Moderation & AI Safety Settings
+  app.get('/api/settings/moderation', (req, res) => {
+    res.json(moderationSettings);
+  });
+
+  app.post('/api/settings/moderation', (req, res) => {
+    const { profanityFilter, aiSpotVerification, imageGuardian } = req.body;
+    moderationSettings = {
+      profanityFilter: profanityFilter !== undefined ? Boolean(profanityFilter) : moderationSettings.profanityFilter,
+      aiSpotVerification: aiSpotVerification !== undefined ? Boolean(aiSpotVerification) : moderationSettings.aiSpotVerification,
+      imageGuardian: imageGuardian !== undefined ? Boolean(imageGuardian) : moderationSettings.imageGuardian,
+      updatedAt: new Date().toISOString()
+    };
+    res.json({
+      success: true,
+      settings: moderationSettings,
+      message: 'AI safety & moderation settings updated successfully.'
+    });
+  });
+
   let stallsStore: Stall[] = [...BMICH_STALLS];
 
   // Get all stalls
@@ -459,7 +490,7 @@ async function startServer() {
   app.post('/api/moderate-image', async (req, res) => {
     try {
       const { image } = req.body;
-      if (!image) {
+      if (!moderationSettings.imageGuardian || !image) {
         return res.json({ isClean: true });
       }
       const result = await moderateImage(image);
@@ -568,7 +599,7 @@ async function startServer() {
           notes: notes?.trim() || undefined,
           status: (status as any) || (isResolved ? 'Found' : 'Looking for Book'),
           helpfulCount: 0,
-          aiVerified: true,
+          aiVerified: moderationSettings.aiSpotVerification,
           isResolved: Boolean(isResolved)
         };
 
@@ -622,7 +653,7 @@ async function startServer() {
         helpfulCount: 1,
         ratingAverage: 5.0,
         ratingCount: 1,
-        aiVerified: true,
+        aiVerified: moderationSettings.aiSpotVerification,
         sampathCardDiscount: matchedStall?.specialDiscount || 'Eligible for Sampath Cardholder fair offers',
         replyToRequestId: replyToRequestId || undefined,
         taggedRequesterName: linkedRequesterName || undefined,
