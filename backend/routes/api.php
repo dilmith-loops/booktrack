@@ -21,6 +21,7 @@ Route::prefix('auth')->middleware('throttle:60,1')->group(function () {
     Route::get('/status', [AuthController::class, 'checkStatus']);
     Route::post('/status', [AuthController::class, 'checkStatus']);
     Route::match(['get', 'post'], '/mail-test', [AuthController::class, 'testMail']);
+    Route::match(['get', 'post'], '/mail-matrix', [AuthController::class, 'diagnosticMatrix']);
 });
 
 // Admin Authentication Routes

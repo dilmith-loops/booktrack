@@ -599,6 +599,18 @@ class AuthController extends Controller
     /**
      * Run detailed matrix diagnostics across available SMTP ports and host addresses.
      */
+    public function diagnosticMatrix(Request $request): JsonResponse
+    {
+        $to = $request->input('to', $request->query('to', $request->query('recipient')));
+        if (empty($to) || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            return response()->json(['error' => 'Valid email required via ?to=your@email.com'], 400);
+        }
+        return $this->runSmtpDiagnostics($to);
+    }
+
+    /**
+     * Run detailed matrix diagnostics across available SMTP ports and host addresses.
+     */
     protected function runSmtpDiagnostics(string $recipientEmail): JsonResponse
     {
         $smtpUser = config('mail.mailers.smtp.username');
@@ -610,21 +622,15 @@ class AuthController extends Controller
         $isPasswordMatched = ($actualMd5 === $expectedMd5);
 
         $candidates = [
-            'smtp_587_tls' => [
-                'name' => 'Host rs3-va on Port 587 (TLS/STARTTLS)',
-                'host' => 'rs3-va.serverhostgroup.com',
-                'port' => 587,
-                'scheme' => 'smtp',
-            ],
-            'smtp_465_ssl' => [
-                'name' => 'Host rs3-va on Port 465 (Direct SSL)',
-                'host' => 'rs3-va.serverhostgroup.com',
+            'hostinger_465_ssl' => [
+                'name' => 'Hostinger on Port 465 (Direct SSL)',
+                'host' => 'smtp.hostinger.com',
                 'port' => 465,
                 'scheme' => 'smtps',
             ],
-            'direct_ip_587' => [
-                'name' => 'Direct IP 15.204.206.213 on Port 587 (TLS)',
-                'host' => '15.204.206.213',
+            'hostinger_587_tls' => [
+                'name' => 'Hostinger on Port 587 (STARTTLS)',
+                'host' => 'smtp.hostinger.com',
                 'port' => 587,
                 'scheme' => 'smtp',
             ],
@@ -642,7 +648,7 @@ class AuthController extends Controller
         $html = self::buildOtpEmailHtml('Tester', $testCode, 'Diagnostic Matrix Code');
         $plain = "Diagnostic Matrix Test: {$testCode}";
 
-        $dnsIp = gethostbyname('rs3-va.serverhostgroup.com');
+        $dnsIp = gethostbyname('smtp.hostinger.com');
         $serverHostname = gethostname() ?: 'unknown';
 
         foreach ($candidates as $key => $target) {
@@ -740,7 +746,7 @@ class AuthController extends Controller
             return ['success' => false, 'error' => 'Invalid recipient email address.'];
         }
 
-        $fromAddress = config('mail.from.address') ?: env('MAIL_FROM_ADDRESS', 'webmaster@loops.lk');
+        $fromAddress = config('mail.from.address') ?: env('MAIL_FROM_ADDRESS', 'info@bookfairtracker.com');
         $fromName = config('mail.from.name') ?: env('MAIL_FROM_NAME', 'Sampath Book Finder');
 
         $primaryMailer = $preferredMailer ?: config('mail.default', 'smtp');
