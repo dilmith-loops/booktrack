@@ -74,14 +74,14 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       <div className="fixed inset-0 z-[9999] flex items-start justify-center sm:justify-end p-2 sm:p-4 pt-16 sm:pt-20">
         {/* Backdrop */}
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity animate-in fade-in duration-150"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-150"
           onClick={() => setIsOpen(false)}
         />
 
         {/* Modal Card */}
         <div
           ref={modalRef}
-          className="relative z-10 w-full max-w-sm sm:max-w-md bg-white rounded-3xl shadow-2xl border border-zinc-200/90 overflow-hidden flex flex-col max-h-[82vh] animate-in zoom-in-95 duration-150 text-left"
+          className="relative z-10 w-full max-w-sm sm:max-w-md bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.35)] border border-zinc-200/90 overflow-hidden flex flex-col max-h-[82vh] animate-in zoom-in-95 duration-150 text-left"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -94,7 +94,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-black text-zinc-900 leading-tight">Notifications</h3>
                   {unreadCount > 0 && (
-                    <span className="bg-[#EA580C] text-white text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                    <span className="bg-[#EA580C] text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">
                       {unreadCount} new
                     </span>
                   )}
@@ -108,7 +108,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 <button
                   onClick={onMarkAllAsRead}
                   id="mark-all-notifications-read-btn"
-                  className="text-[10px] font-bold text-orange-600 hover:text-orange-800 bg-orange-100/70 hover:bg-orange-100 px-2 py-1 rounded-full transition-colors cursor-pointer flex items-center gap-1"
+                  className="text-[10px] font-bold text-orange-600 hover:text-orange-800 bg-orange-100/70 hover:bg-orange-100 px-2.5 py-1 rounded-full transition-colors cursor-pointer flex items-center gap-1"
                   title="Mark all as read"
                 >
                   <CheckCheck className="w-3 h-3" />
@@ -128,18 +128,18 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
           </div>
 
           {/* Filter Pills */}
-          <div className="px-4 py-2 border-b border-zinc-100 bg-zinc-50/70 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <div className="px-3.5 py-2.5 border-b border-zinc-100 bg-zinc-50/80 flex items-center gap-2 overflow-x-auto no-scrollbar scrollbar-none">
             <button
               onClick={() => setFilter('all')}
               id="notif-filter-all"
-              className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 filter === 'all'
                   ? 'bg-zinc-900 text-white shadow-xs'
-                  : 'bg-white text-zinc-600 hover:bg-zinc-200/80 border border-zinc-200/60'
+                  : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200/80'
               }`}
             >
               <span>All</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                 filter === 'all' ? 'bg-zinc-700 text-white' : 'bg-zinc-100 text-zinc-600'
               }`}>
                 {notifications.length}
@@ -149,15 +149,15 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             <button
               onClick={() => setFilter('reply')}
               id="notif-filter-reply"
-              className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 filter === 'reply'
                   ? 'bg-[#EA580C] text-white shadow-xs'
-                  : 'bg-white text-zinc-600 hover:bg-zinc-200/80 border border-zinc-200/60'
+                  : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200/80'
               }`}
             >
-              <MessageSquareQuote className="w-3 h-3 text-orange-400" />
-              <span>Replies & Spottings</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+              <MessageSquareQuote className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+              <span>Replies & Spots</span>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                 filter === 'reply' ? 'bg-orange-700 text-white' : 'bg-zinc-100 text-zinc-600'
               }`}>
                 {replyCount}
@@ -167,15 +167,15 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             <button
               onClick={() => setFilter('mention')}
               id="notif-filter-mention"
-              className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 filter === 'mention'
                   ? 'bg-blue-600 text-white shadow-xs'
-                  : 'bg-white text-zinc-600 hover:bg-zinc-200/80 border border-zinc-200/60'
+                  : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200/80'
               }`}
             >
-              <AtSign className="w-3 h-3 text-blue-400" />
+              <AtSign className="w-3.5 h-3.5 text-blue-400 shrink-0" />
               <span>Mentions</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                 filter === 'mention' ? 'bg-blue-700 text-white' : 'bg-zinc-100 text-zinc-600'
               }`}>
                 {mentionCount}
@@ -185,15 +185,15 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             <button
               onClick={() => setFilter('updates')}
               id="notif-filter-updates"
-              className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                 filter === 'updates'
                   ? 'bg-purple-700 text-white shadow-xs'
-                  : 'bg-white text-zinc-600 hover:bg-zinc-200/80 border border-zinc-200/60'
+                  : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200/80'
               }`}
             >
-              <Megaphone className="w-3 h-3 text-purple-400" />
+              <Megaphone className="w-3.5 h-3.5 text-purple-400 shrink-0" />
               <span>Announcements</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                 filter === 'updates' ? 'bg-purple-900 text-white' : 'bg-zinc-100 text-zinc-600'
               }`}>
                 {updatesCount}
@@ -202,7 +202,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
           </div>
 
           {/* Notifications Scroll List */}
-          <div className="flex-1 overflow-y-auto divide-y divide-zinc-100/90 p-2 sm:p-3 space-y-2">
+          <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3.5 space-y-2.5">
             {filteredNotifications.length === 0 ? (
               <div className="py-8 px-4 text-center space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-orange-50 text-[#F37021] flex items-center justify-center mx-auto shadow-xs">
@@ -302,7 +302,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                         <div className="flex items-center justify-between gap-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span
-                              className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-md ${tagClass}`}
+                              className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${tagClass}`}
                             >
                               {tagLabel}
                             </span>
@@ -350,13 +350,13 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                         )}
 
                         {/* Message Preview */}
-                        <p className="mt-1 text-xs text-zinc-600 line-clamp-2 leading-relaxed bg-zinc-50/80 p-1.5 rounded-lg border border-zinc-100">
+                        <div className="mt-1.5 text-xs text-zinc-600 leading-relaxed bg-zinc-50/90 p-2.5 rounded-xl border border-zinc-200/70 break-words">
                           {n.message}
-                        </p>
+                        </div>
 
                         {/* Bottom action hint */}
                         {n.spotId && (
-                          <div className="mt-1.5 flex items-center justify-between text-[10px] text-orange-600 font-bold">
+                          <div className="mt-2 flex items-center justify-between text-[10px] text-orange-600 font-bold">
                             <span className="inline-flex items-center gap-1 hover:underline">
                               View spot in Chat Feed
                               <ArrowRight className="w-3 h-3" />
@@ -372,8 +372,11 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
           </div>
 
           {/* Helpful footer hint */}
-          <div className="px-3.5 py-2.5 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between text-[11px] text-zinc-500">
-            <span className="truncate">Tag fellow readers using @handle in chat</span>
+          <div className="px-4 py-2.5 bg-gradient-to-r from-zinc-50 via-zinc-50 to-orange-50/30 border-t border-zinc-100 flex items-center justify-between text-[11px] text-zinc-500 rounded-b-3xl">
+            <span className="flex items-center gap-1.5 truncate">
+              <AtSign className="w-3.5 h-3.5 text-[#F37021] shrink-0" />
+              <span>Tag fellow readers using @handle in chat</span>
+            </span>
           </div>
         </div>
       </div>,
