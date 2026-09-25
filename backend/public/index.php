@@ -13,6 +13,29 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 
+// Catch any fatal PHP compile or startup errors and return descriptive JSON
+register_shutdown_function(function () {
+    $err = error_get_last();
+    if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR])) {
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        echo json_encode([
+            'fatal_error' => $err['message'],
+            'file' => basename($err['file']) . ':' . $err['line'],
+            'full_path' => $err['file'],
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    }
+});
+
+// Early health ping check
+if (isset($_GET['health_check'])) {
+    header('Content-Type: application/json');
+    echo json_encode(['php' => PHP_VERSION, 'status' => 'alive']);
+    exit;
+}
+
 // 1. PHP Version Diagnostic Check
 if (version_compare(PHP_VERSION, '8.2.0', '<')) {
     http_response_code(500);
