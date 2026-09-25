@@ -5,6 +5,7 @@ import { fileToDataUrl } from '../utils/imageUtils';
 import { checkLocalProfanity } from '../utils/moderationPatterns';
 import { analyzeImageClientSafety } from '../utils/imageSafetyFilter';
 import { apiFetch } from '../utils/api';
+import { SearchableStallSelect } from './SearchableStallSelect';
 
 interface PostBookSpotModalProps {
   isOpen: boolean;
@@ -769,25 +770,19 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
                   <span>BMICH Stall * (From Dropdown)</span>
                   <span className="text-[10px] text-[#075E54] font-black">Official Partner</span>
                 </label>
-                <div className="relative">
-                  <select
-                    id="post-stall-select"
-                    value={selectedStallId}
-                    onChange={(e) => setSelectedStallId(e.target.value)}
-                    required
-                    aria-label="BMICH Stall"
-                    className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl text-xs font-bold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-[#F37021] focus:bg-white appearance-none cursor-pointer"
-                  >
-                    <option value="">-- Choose participating book stall --</option>
-                    {stalls.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.hall} • {s.stallNumber}) {s.specialDiscount ? `[${s.specialDiscount}]` : ''}
-                      </option>
-                    ))}
-                    <option value="other">+ Other BMICH Fairground Stall...</option>
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-zinc-400 absolute right-3 top-3 pointer-events-none" />
-                </div>
+                <SearchableStallSelect
+                  stalls={stalls}
+                  selectedStallId={selectedStallId}
+                  onSelectStallId={(id) => {
+                    setSelectedStallId(id);
+                    if (errorMsg) setErrorMsg(null);
+                  }}
+                  onSelectOtherWithCustomName={(name) => {
+                    setCustomStallName(name);
+                    if (errorMsg) setErrorMsg(null);
+                  }}
+                  error={Boolean(errorMsg && !selectedStallId)}
+                />
 
                 {selectedStall?.specialDiscount && (
                   <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-black text-[#C84F0E] bg-orange-50 p-2 rounded-lg border border-orange-200">
