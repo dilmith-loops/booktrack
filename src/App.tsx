@@ -40,7 +40,24 @@ export default function App() {
     } catch {}
     return BMICH_STALLS;
   });
-  const [spots, setSpots] = useState<BookSpotting[]>([]);
+  const [spots, setSpots] = useState<BookSpotting[]>(() => {
+    try {
+      const saved = localStorage.getItem('sampath_bmich_spots');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const realSpots = parsed.filter(
+            (s: BookSpotting) =>
+              !s.id.startsWith('dummy-spot-') &&
+              !s.id.startsWith('spot-dummy-') &&
+              !s.id.startsWith('req-dummy-')
+          );
+          return realSpots;
+        }
+      }
+    } catch {}
+    return [];
+  });
   const [selectedHallFilter, setSelectedHallFilter] = useState('All Halls');
   const [activeTab, setActiveTab] = useState<PwaTab>('chat');
   const [showFeatureTour, setShowFeatureTour] = useState(false);
@@ -528,12 +545,73 @@ export default function App() {
           const legacyDummySpotIds = new Set([
             'spot-1', 'spot-2', 'spot-3', 'spot-4', 'spot-5', 'req-1', 'req-2', 'spot-hp-reply'
           ]);
-          const cleanSpots = pData.spots.filter((s: BookSpotting) => !legacyDummySpotIds.has(s.id));
+          const cleanSpots = pData.spots.filter(
+            (s: BookSpotting) =>
+              !legacyDummySpotIds.has(s.id) &&
+              !s.id.startsWith('dummy-spot-') &&
+              !s.id.startsWith('spot-dummy-') &&
+              !s.id.startsWith('req-dummy-')
+          );
           setSpots(cleanSpots);
+          try {
+            localStorage.setItem('sampath_bmich_spots', JSON.stringify(cleanSpots));
+          } catch {}
         }
       }
     } catch (err) {
       console.warn('Network sync notice:', err);
+    }
+  }, []);
+
+  const pollLatestSpots = React.useCallback(async () => {
+    try {
+      const spotsRes = await apiFetch('/api/spots?include_archived=true');
+      if (spotsRes.ok) {
+        const pData = await spotsRes.json();
+        if (Array.isArray(pData.spots)) {
+          const legacyDummySpotIds = new Set([
+            'spot-1', 'spot-2', 'spot-3', 'spot-4', 'spot-5', 'req-1', 'req-2', 'spot-hp-reply'
+          ]);
+          const cleanSpots = pData.spots.filter(
+            (s: BookSpotting) =>
+              !legacyDummySpotIds.has(s.id) &&
+              !s.id.startsWith('dummy-spot-') &&
+              !s.id.startsWith('spot-dummy-') &&
+              !s.id.startsWith('req-dummy-')
+          );
+
+          setSpots((prev) => {
+            if (
+              cleanSpots.length === prev.length &&
+              (cleanSpots.length === 0 || (
+                cleanSpots[0]?.id === prev[0]?.id &&
+                cleanSpots[cleanSpots.length - 1]?.id === prev[prev.length - 1]?.id
+              ))
+            ) {
+              let changed = false;
+              for (let i = 0; i < Math.min(cleanSpots.length, 30); i++) {
+                if (
+                  cleanSpots[i].helpfulCount !== prev[i]?.helpfulCount ||
+                  cleanSpots[i].status !== prev[i]?.status ||
+                  cleanSpots[i].ratingAverage !== prev[i]?.ratingAverage ||
+                  cleanSpots[i].isResolved !== prev[i]?.isResolved
+                ) {
+                  changed = true;
+                  break;
+                }
+              }
+              if (!changed) return prev;
+            }
+
+            try {
+              localStorage.setItem('sampath_bmich_spots', JSON.stringify(cleanSpots));
+            } catch {}
+            return cleanSpots;
+          });
+        }
+      }
+    } catch {
+      // Ignore background network transient errors
     }
   }, []);
 
@@ -542,6 +620,16 @@ export default function App() {
     window.addEventListener('focus', loadData);
     return () => window.removeEventListener('focus', loadData);
   }, [loadData]);
+
+  // Periodic background auto-fetch for chat spots feed (every 5 seconds when tab is active)
+  useEffect(() => {
+    const pollInterval = setInterval(() => {
+      if (document.hidden || isMaintenanceMode) return;
+      pollLatestSpots();
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, [pollLatestSpots, isMaintenanceMode]);
 
   const handleSpotAdded = (newSpot: BookSpotting) => {
     setSpots((prev) => [newSpot, ...prev]);
