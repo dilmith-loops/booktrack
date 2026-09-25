@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-zinc-200/90 shadow-xs">
-      {/* Top micro sponsor accent banner with Install App Button */}
+      {/* Top micro sponsor accent banner with Install Vishwa App Button */}
       <div className="bg-gradient-to-r from-[#F37021] via-[#EA580C] to-[#C2410C] text-white px-3 py-1 flex items-center justify-between">
         {/* Sponsor details in two rows */}
         <div className="flex flex-col leading-tight">
@@ -44,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </div>
 
-        {/* Install App button */}
+        {/* Install Vishwa App button */}
         <div className="flex items-center">
           <PWAInstallButton variant="topbar" />
         </div>

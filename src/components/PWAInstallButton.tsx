@@ -45,7 +45,7 @@ export const PWAInstallButton: React.FC<{ variant?: 'header' | 'banner' | 'pill'
       title="Download Sampath Vishwa App"
     >
       <Download className="w-3 h-3 text-[#F37021]" />
-      <span>Install App</span>
+      <span>Install Vishwa App</span>
     </a>
   );
 };
