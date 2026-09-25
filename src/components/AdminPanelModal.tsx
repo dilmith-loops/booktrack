@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ShieldCheck,
   ArrowLeft,
@@ -20,13 +20,20 @@ import {
   Sparkles,
   RefreshCw,
   Power,
-  Wrench
+  Wrench,
+  Check,
+  Tag,
+  Bell,
+  AlertCircle,
+  ExternalLink,
+  ChevronRight
 } from 'lucide-react';
-import { Stall, BookSpotting, UserProfile, Announcement, ModerationSettings } from '../types';
+import { Stall, BookSpotting, UserProfile, Announcement, ModerationSettings, BookFairNoticeBanner as NoticeBannerType, NoticeBannerTheme } from '../types';
 import { apiFetch } from '../utils/api';
 import { SpotsDataTable } from './SpotsDataTable';
 import { StallsDataTable } from './StallsDataTable';
 import { UsersDataTable } from './UsersDataTable';
+import { BookFairNoticeBanner } from './BookFairNoticeBanner';
 
 interface AdminPanelModalProps {
   isOpen: boolean;
@@ -57,6 +64,8 @@ interface AdminPanelModalProps {
   onRefreshStalls?: () => Promise<void> | void;
   moderationSettings?: ModerationSettings;
   onUpdateModerationSettings?: (settings: ModerationSettings) => Promise<void> | void;
+  noticeBanner?: NoticeBannerType;
+  onUpdateNoticeBanner?: (notice: NoticeBannerType) => Promise<void> | void;
 }
 
 type AdminTab = 'overview' | 'spots' | 'stalls' | 'announcements' | 'users';
@@ -89,7 +98,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onImportStalls,
   onRefreshStalls,
   moderationSettings,
-  onUpdateModerationSettings
+  onUpdateModerationSettings,
+  noticeBanner,
+  onUpdateNoticeBanner
 }) => {
   const [adminToken, setAdminToken] = useState<string>(() => sessionStorage.getItem('sampath_admin_token') || '');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!sessionStorage.getItem('sampath_admin_token'));
@@ -99,6 +110,162 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const [authError, setAuthError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+
+  // Book Fair Notice Banner State
+  const defaultNotice: NoticeBannerType = {
+    enabled: true,
+    message: 'BMICH Fair Notice: Special discount stalls now open in Hall E! Check them out for exclusive deals.',
+    badgeText: 'FAIR NOTICE',
+    showBadge: true,
+    theme: 'orange',
+    isTicker: true,
+    linkText: 'View Stalls',
+    linkUrl: 'stalls',
+    isClosable: true,
+    updatedAt: new Date().toISOString()
+  };
+
+  const [currentNotice, setCurrentNotice] = useState<NoticeBannerType>(() => {
+    return noticeBanner || defaultNotice;
+  });
+
+  // Separate preview state: typing does NOT auto-fill preview on every keystroke
+  const [previewNotice, setPreviewNotice] = useState<NoticeBannerType>(() => {
+    return noticeBanner || defaultNotice;
+  });
+
+  // Prevent background sync from overwriting or auto-filling form while user is typing
+  const isUserEditingNoticeRef = useRef(false);
+
+  const [isSavingNotice, setIsSavingNotice] = useState(false);
+  const [noticeFeedback, setNoticeFeedback] = useState('');
+
+  useEffect(() => {
+    // Only update from server prop if user is NOT currently editing/typing
+    if (noticeBanner && !isUserEditingNoticeRef.current) {
+      setCurrentNotice(noticeBanner);
+      setPreviewNotice(noticeBanner);
+    }
+  }, [noticeBanner]);
+
+  const handleUpdatePreview = () => {
+    setPreviewNotice({ ...currentNotice });
+    setNoticeFeedback('Live preview updated with your current edits.');
+    setTimeout(() => setNoticeFeedback(''), 3000);
+  };
+
+  const handleToggleNoticeEnabled = async () => {
+    const updated = {
+      ...currentNotice,
+      enabled: !currentNotice.enabled,
+      updatedAt: new Date().toISOString()
+    };
+    setCurrentNotice(updated);
+    setPreviewNotice(updated);
+    setIsSavingNotice(true);
+    setNoticeFeedback('');
+
+    try {
+      if (onUpdateNoticeBanner) {
+        await onUpdateNoticeBanner(updated);
+      } else {
+        await apiFetch('/api/settings/notice-banner', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Token': adminToken
+          },
+          body: JSON.stringify(updated)
+        });
+      }
+      setNoticeFeedback(`Notice banner is now ${updated.enabled ? 'VISIBLE in chat' : 'HIDDEN from chat'}.`);
+      setTimeout(() => setNoticeFeedback(''), 4000);
+    } catch (err) {
+      console.error('Failed to toggle notice banner', err);
+      setNoticeFeedback('Failed to update banner visibility.');
+    } finally {
+      setIsSavingNotice(false);
+    }
+  };
+
+  const handleSaveNoticeSettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsSavingNotice(true);
+    setNoticeFeedback('');
+
+    const updated = {
+      ...currentNotice,
+      updatedAt: new Date().toISOString()
+    };
+
+    setPreviewNotice(updated);
+    isUserEditingNoticeRef.current = false;
+
+    try {
+      if (onUpdateNoticeBanner) {
+        await onUpdateNoticeBanner(updated);
+      } else {
+        await apiFetch('/api/settings/notice-banner', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Admin-Token': adminToken
+          },
+          body: JSON.stringify(updated)
+        });
+      }
+      setNoticeFeedback('Book fair notice banner saved and published live!');
+      setTimeout(() => setNoticeFeedback(''), 4000);
+    } catch (err) {
+      console.error('Failed to save notice banner', err);
+      setNoticeFeedback('Failed to save banner. Please try again.');
+    } finally {
+      setIsSavingNotice(false);
+    }
+  };
+
+  const noticePresets = [
+    {
+      label: '🏷️ Hall E Discounts',
+      badge: 'DISCOUNT ALERT',
+      theme: 'orange' as NoticeBannerTheme,
+      message: 'Special 20% discount stalls now open in Hall E! Check them out for exclusive fair deals.',
+      linkText: 'View Stalls',
+      linkUrl: 'stalls'
+    },
+    {
+      label: '💳 Sampath Card 15%',
+      badge: 'SAMPATH PERKS',
+      theme: 'emerald' as NoticeBannerTheme,
+      message: 'Sampath Credit & Debit Cardholders receive an exclusive 15% discount across all participating publisher stalls!',
+      linkText: 'Card Perks',
+      linkUrl: 'perks'
+    },
+    {
+      label: '📢 Author Meet & Talk',
+      badge: 'LIVE EVENT',
+      theme: 'indigo' as NoticeBannerTheme,
+      message: 'Special author book launch & discussion session taking place today at the BMICH main stage from 3:00 PM!',
+      linkText: 'Check Radar',
+      linkUrl: 'radar'
+    },
+    {
+      label: '⚡ Fair Evening Rush',
+      badge: 'FAIR UPDATE',
+      theme: 'amber' as NoticeBannerTheme,
+      message: 'Fair stalls open until 9:00 PM tonight. Evening flash discounts available across all main exhibition halls!',
+      linkText: 'Explore Stalls',
+      linkUrl: 'stalls'
+    },
+    {
+      label: '🌧️ Weather / Covered Entry',
+      badge: 'FAIR ADVISORY',
+      theme: 'rose' as NoticeBannerTheme,
+      message: 'All sheltered corridors open between Hall A, B, and C. Enjoy comfortable indoor browsing throughout the fair.',
+      linkText: '',
+      linkUrl: ''
+    }
+  ];
 
   // Maintenance mode state
   const [maintenanceActive, setMaintenanceActive] = useState<boolean>(() => isMaintenanceMode);
@@ -317,9 +484,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         })
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setAuthError(data.error || 'Invalid administrator username or password.');
+        if (res.status === 429) {
+          setAuthError('Too many login attempts. Please wait a moment before trying again.');
+        } else {
+          setAuthError(data.error || data.message || 'Invalid administrator username or password.');
+        }
         return;
       }
 
@@ -575,6 +746,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
 
             <button
               onClick={() => setActiveTab('announcements')}
+              id="admin-tab-notices"
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'announcements'
                   ? 'bg-[#F37021] text-white shadow-md'
@@ -582,7 +754,14 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
               }`}
             >
               <Megaphone className="w-4 h-4" />
-              <span>Broadcast Banners ({announcements.length})</span>
+              <span>Book Fair Notices</span>
+              <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+                currentNotice.enabled 
+                  ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40' 
+                  : 'bg-zinc-800 text-zinc-400'
+              }`}>
+                {currentNotice.enabled ? 'Live' : 'Hidden'}
+              </span>
             </button>
 
             <button
@@ -1023,73 +1202,570 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
             />
           )}
 
-          {/* TAB 4: BROADCAST ANNOUNCEMENTS */}
+          {/* TAB 4: BOOK FAIR NOTICES & LIVE CHAT HEADER BANNER */}
           {activeTab === 'announcements' && (
-            <div className="space-y-6">
-              <form onSubmit={handleCreateAnnouncement} className="bg-zinc-900 p-6 rounded-2xl border border-zinc-800 space-y-4 shadow-md">
-                <h3 className="text-sm font-black uppercase tracking-wider text-[#F37021] flex items-center gap-2">
-                  <Megaphone className="w-5 h-5" />
-                  <span>Publish Live Announcement Banner</span>
-                </h3>
+            <div className="space-y-7">
+              {/* SECTION 1: LIVE CHAT HEADER NOTICE BANNER (SHOW / HIDE & CUSTOMIZATION) */}
+              <div className="bg-zinc-900 rounded-3xl border border-zinc-800 p-5 sm:p-7 space-y-6 shadow-xl relative overflow-hidden">
+                {/* Header with Title & Live Status Indicator */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-800">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2.5 rounded-xl bg-[#F37021]/15 text-[#F37021] border border-[#F37021]/30">
+                        <Megaphone className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-black text-white flex items-center gap-2">
+                          <span>Chat Page Book Fair Notice Banner</span>
+                          <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
+                            currentNotice.enabled 
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                              : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                          }`}>
+                            {currentNotice.enabled ? '● Visible in Chat' : '○ Hidden from Chat'}
+                          </span>
+                        </h3>
+                        <p className="text-xs text-zinc-400 font-medium mt-0.5">
+                          Thin notice banner section displayed directly below the header in the chat page. Show, hide, and customize anytime.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                  <select
-                    value={annType}
-                    onChange={(e) => setAnnType(e.target.value as Announcement['type'])}
-                    className="px-3.5 py-3 bg-zinc-950 border border-zinc-700 rounded-xl text-xs text-white font-bold"
-                  >
-                    <option value="discount">Discount Alert 🎁</option>
-                    <option value="urgent">Urgent Notice ⚡</option>
-                    <option value="info">Fair Announcement 📢</option>
-                  </select>
-
-                  <input
-                    type="text"
-                    placeholder="Announcement message (e.g. Flash 20% discount at Hall C!)..."
-                    value={annMessage}
-                    onChange={(e) => setAnnMessage(e.target.value)}
-                    className="sm:col-span-3 px-4 py-3 bg-zinc-950 border border-zinc-700 rounded-xl text-xs text-white font-semibold focus:outline-none focus:ring-2 focus:ring-[#F37021]"
-                    required
-                  />
+                  {/* Master Show / Hide Toggle Button */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      id="toggle-notice-visibility-btn"
+                      disabled={isSavingNotice}
+                      onClick={handleToggleNoticeEnabled}
+                      className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-md active:scale-95 disabled:opacity-50 ${
+                        currentNotice.enabled
+                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/40'
+                          : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700'
+                      }`}
+                    >
+                      {currentNotice.enabled ? (
+                        <>
+                          <Eye className="w-4 h-4 text-emerald-100" />
+                          <span>Banner is ON (Click to Hide)</span>
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff className="w-4 h-4 text-zinc-400" />
+                          <span>Banner is OFF (Click to Show)</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
-                <button
-                  type="submit"
-                  className="px-6 py-3 bg-[#F37021] hover:bg-[#EA580C] text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md"
-                >
-                  <Megaphone className="w-4 h-4" />
-                  <span>Publish Live Banner</span>
-                </button>
-              </form>
+                {/* Feedback Toast Banner */}
+                {noticeFeedback && (
+                  <div className="p-3.5 rounded-xl bg-[#F37021]/15 border border-[#F37021]/40 text-[#F37021] text-xs font-bold flex items-center gap-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <CheckCircle2 className="w-4 h-4 text-[#F37021] flex-shrink-0" />
+                    <span>{noticeFeedback}</span>
+                  </div>
+                )}
 
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
-                  Active & Past Announcements ({announcements.length})
-                </h4>
-
+                {/* Live WYSIWYG Device Mockup Preview */}
                 <div className="space-y-2">
-                  {announcements.map((ann) => (
-                    <div
-                      key={ann.id}
-                      className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-between gap-4 text-xs"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-[#F37021]/20 text-[#F37021] border border-[#F37021]/30">
-                          {ann.type}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#F37021]" />
+                      <span>Live Preview (How visitors see it below the header):</span>
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleUpdatePreview}
+                        className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-xs"
+                        title="Click to preview your edited text in the banner above"
+                      >
+                        <Eye className="w-3 h-3 text-[#F37021]" />
+                        <span>Preview Current Edits</span>
+                      </button>
+                      <span className="text-[11px] text-zinc-400 font-medium">
+                        {previewNotice.enabled ? '🟢 Live in Chat Page' : '⚪ Currently Hidden from Visitors'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Realistic Mockup Header Frame */}
+                  <div className="rounded-2xl border-2 border-zinc-800 bg-zinc-950 overflow-hidden shadow-2xl max-w-lg">
+                    {/* Simulated Header Bar */}
+                    <div className="bg-white/95 px-3 py-2 flex items-center justify-between border-b border-zinc-200">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-[#F37021] flex items-center gap-1">
+                          <Building2 className="w-3.5 h-3.5" />
+                          <span>Sampath Book Finder</span>
                         </span>
-                        <span className="text-zinc-200 font-bold">{ann.message}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center text-[10px] font-bold text-zinc-600 border border-zinc-200">
+                          <Bell className="w-3.5 h-3.5 text-zinc-600" />
+                        </div>
+                        <div className="w-6 h-6 rounded-full bg-[#F37021] text-white flex items-center justify-center text-[10px] font-black shadow-xs">
+                          A
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* The Live Notice Banner Component (Uses previewNotice so typing does not auto-fill on every keypress) */}
+                    <BookFairNoticeBanner
+                      notice={previewNotice}
+                      isPreview={true}
+                    />
+
+                    {/* Simulated Chat Feed Background */}
+                    <div className="p-3 bg-[#EFEAE2] flex flex-col gap-1.5 min-h-[50px] opacity-80 select-none">
+                      <div className="self-center bg-[#FCF5EB] border border-[#E8DEC8] text-[#54656F] px-3 py-0.5 rounded-lg text-[9px] font-medium flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5 text-emerald-600" />
+                        <span>Chat messages stream starts here...</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick 1-Click Preset Templates */}
+                <div className="space-y-2 pt-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                    Quick Preset Templates (Optional quick-fill):
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {noticePresets.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          isUserEditingNoticeRef.current = true;
+                          setCurrentNotice((prev) => ({
+                            ...prev,
+                            message: preset.message,
+                            badgeText: preset.badge,
+                            showBadge: true,
+                            theme: preset.theme,
+                            linkText: preset.linkText,
+                            linkUrl: preset.linkUrl
+                          }));
+                          setNoticeFeedback(`Loaded preset: "${preset.label}". Click "Preview Current Edits" or "Save & Publish" when ready.`);
+                          setTimeout(() => setNoticeFeedback(''), 4000);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+                      >
+                        <span>{preset.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Customization Controls Form */}
+                <form onSubmit={handleSaveNoticeSettings} autoComplete="off" className="space-y-5 pt-2">
+                  {/* 1. Notice Text Message */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black uppercase tracking-wider text-zinc-300 flex items-center justify-between">
+                      <span>Notice Message (Chat Banner Text)</span>
+                      <span className="text-[10px] text-zinc-500 font-mono">
+                        {currentNotice.message.length} characters
+                      </span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      name="custom_notice_message"
+                      value={currentNotice.message}
+                      onChange={(e) => {
+                        isUserEditingNoticeRef.current = true;
+                        setCurrentNotice({ ...currentNotice, message: e.target.value });
+                      }}
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      data-form-type="other"
+                      data-lpignore="true"
+                      data-1p-ignore="true"
+                      placeholder="e.g. BMICH Fair Notice: Special discount stalls now open in Hall E! Check them out for exclusive deals."
+                      className="w-full px-4 py-3 bg-zinc-950 border border-zinc-700 rounded-xl text-xs text-white font-semibold focus:outline-none focus:ring-2 focus:ring-[#F37021] resize-none"
+                      required
+                    />
+                  </div>
+
+                  {/* 2. Badge / Pill Tag (Hide, Show & Rename Controls) */}
+                  <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-[#F37021]" />
+                        <span className="text-xs font-black uppercase tracking-wider text-zinc-200">
+                          Notice Badge / Tag Pill
+                        </span>
+                        <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                          (currentNotice.showBadge ?? true) && !!currentNotice.badgeText?.trim()
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                            : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                        }`}>
+                          {(currentNotice.showBadge ?? true) && !!currentNotice.badgeText?.trim() ? '● Shown in Banner' : '○ Hidden from Banner'}
+                        </span>
                       </div>
 
+                      {/* Show / Hide Toggle Button */}
                       <button
-                        onClick={() => onDeleteAnnouncement(ann.id)}
-                        className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                        type="button"
+                        id="toggle-notice-badge-visibility-btn"
+                        onClick={() => {
+                          isUserEditingNoticeRef.current = true;
+                          const currentlyShown = (currentNotice.showBadge ?? true) && !!currentNotice.badgeText?.trim();
+                          if (currentlyShown) {
+                            setCurrentNotice({
+                              ...currentNotice,
+                              showBadge: false
+                            });
+                          } else {
+                            setCurrentNotice({
+                              ...currentNotice,
+                              showBadge: true,
+                              badgeText: currentNotice.badgeText?.trim() || 'SAMPATH PERKS'
+                            });
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs ${
+                          (currentNotice.showBadge ?? true) && !!currentNotice.badgeText?.trim()
+                            ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700'
+                            : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                        }`}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Delete</span>
+                        {(currentNotice.showBadge ?? true) && !!currentNotice.badgeText?.trim() ? (
+                          <>
+                            <EyeOff className="w-3.5 h-3.5 text-zinc-400" />
+                            <span>Hide Badge Pill</span>
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-3.5 h-3.5 text-white" />
+                            <span>Show Badge Pill</span>
+                          </>
+                        )}
                       </button>
                     </div>
-                  ))}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {/* Rename input */}
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold text-zinc-400 block">
+                          Rename Badge Text:
+                        </label>
+                        <input
+                          type="text"
+                          name="custom_notice_badge"
+                          value={currentNotice.badgeText || ''}
+                          onChange={(e) => {
+                            isUserEditingNoticeRef.current = true;
+                            setCurrentNotice({
+                              ...currentNotice,
+                              badgeText: e.target.value,
+                              showBadge: e.target.value.trim().length > 0 ? (currentNotice.showBadge ?? true) : false
+                            });
+                          }}
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="none"
+                          spellCheck={false}
+                          data-form-type="other"
+                          data-lpignore="true"
+                          data-1p-ignore="true"
+                          placeholder="e.g. SAMPATH PERKS, FAIR NOTICE, DISCOUNT ALERT..."
+                          className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white font-bold focus:outline-none focus:ring-2 focus:ring-[#F37021]"
+                        />
+                      </div>
+
+                      {/* Display Animation Style */}
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold text-zinc-400 block">
+                          Display Animation Style:
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setCurrentNotice({ ...currentNotice, isTicker: true })}
+                            className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                              currentNotice.isTicker
+                                ? 'bg-[#F37021] text-white border-[#F37021] shadow-xs'
+                                : 'bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-white'
+                            }`}
+                          >
+                            <span>Marquee Ticker</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCurrentNotice({ ...currentNotice, isTicker: false })}
+                            className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                              !currentNotice.isTicker
+                                ? 'bg-[#F37021] text-white border-[#F37021] shadow-xs'
+                                : 'bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-white'
+                            }`}
+                          >
+                            <span>Static Banner</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick 1-Click Rename Preset Chips */}
+                    <div className="space-y-1.5 pt-1 border-t border-zinc-800/80">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                          Quick Rename Presets (1-Tap):
+                        </span>
+                        {currentNotice.badgeText && (currentNotice.showBadge ?? true) && (
+                          <span className="text-[10px] text-zinc-400 font-mono">
+                            Current badge: <span className="text-[#F37021] font-bold">[{currentNotice.badgeText.toUpperCase()}]</span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {['SAMPATH PERKS', 'FAIR NOTICE', 'DISCOUNT ALERT', 'LIVE EVENT', 'FLASH UPDATE', 'ADVISORY'].map((label) => (
+                          <button
+                            key={label}
+                            type="button"
+                            onClick={() => {
+                              isUserEditingNoticeRef.current = true;
+                              setCurrentNotice({
+                                ...currentNotice,
+                                badgeText: label,
+                                showBadge: true
+                              });
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                              currentNotice.badgeText?.toUpperCase() === label && (currentNotice.showBadge ?? true)
+                                ? 'bg-[#F37021]/20 text-[#F37021] border-[#F37021] shadow-xs'
+                                : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
+                            }`}
+                          >
+                            {label === 'SAMPATH PERKS' ? '💳 ' : label === 'FAIR NOTICE' ? '📢 ' : label === 'DISCOUNT ALERT' ? '🏷️ ' : label === 'LIVE EVENT' ? '🎉 ' : label === 'FLASH UPDATE' ? '⚡ ' : 'ℹ️ '}
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. Color Theme Selector */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-wider text-zinc-300">
+                      Color Theme Palette
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                      {[
+                        { id: 'orange', name: 'Sampath Brand', color: 'from-[#F37021] to-[#C2410C]' },
+                        { id: 'amber', name: 'Golden Amber', color: 'from-amber-500 to-yellow-600' },
+                        { id: 'emerald', name: 'Emerald Deals', color: 'from-emerald-600 to-teal-700' },
+                        { id: 'indigo', name: 'Indigo Updates', color: 'from-blue-600 to-indigo-700' },
+                        { id: 'rose', name: 'Crimson Urgent', color: 'from-rose-600 to-red-700' },
+                        { id: 'dark', name: 'Obsidian Dark', color: 'from-zinc-900 to-black' }
+                      ].map((th) => (
+                        <button
+                          key={th.id}
+                          type="button"
+                          onClick={() => setCurrentNotice({ ...currentNotice, theme: th.id as NoticeBannerTheme })}
+                          className={`p-2.5 rounded-xl border text-left flex flex-col gap-1.5 transition-all cursor-pointer ${
+                            currentNotice.theme === th.id
+                              ? 'border-[#F37021] bg-zinc-800 ring-2 ring-[#F37021]/50 shadow-md'
+                              : 'border-zinc-700 bg-zinc-950 hover:bg-zinc-800/60'
+                          }`}
+                        >
+                          <div className={`h-4 w-full rounded-md bg-gradient-to-r ${th.color} shadow-xs`} />
+                          <span className="text-[10px] font-bold text-zinc-200 truncate">{th.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 5. Optional Action CTA Link */}
+                  <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
+                        <Tag className="w-3.5 h-3.5 text-[#F37021]" />
+                        <span>Optional Call-To-Action Button</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (currentNotice.linkText) {
+                            setCurrentNotice({ ...currentNotice, linkText: '', linkUrl: '' });
+                          } else {
+                            setCurrentNotice({ ...currentNotice, linkText: 'View Stalls', linkUrl: 'stalls' });
+                          }
+                        }}
+                        className="text-[11px] font-bold text-[#F37021] hover:underline cursor-pointer"
+                      >
+                        {currentNotice.linkText ? 'Remove Button' : '+ Add Action Button'}
+                      </button>
+                    </div>
+
+                    {currentNotice.linkText !== undefined && currentNotice.linkText !== '' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="text-[10px] font-bold text-zinc-400 block mb-1">
+                            Button Label
+                          </label>
+                          <input
+                            type="text"
+                            name="custom_notice_cta_label"
+                            value={currentNotice.linkText || ''}
+                            onChange={(e) => {
+                              isUserEditingNoticeRef.current = true;
+                              setCurrentNotice({ ...currentNotice, linkText: e.target.value });
+                            }}
+                            autoComplete="off"
+                            autoCorrect="off"
+                            autoCapitalize="none"
+                            spellCheck={false}
+                            data-form-type="other"
+                            data-lpignore="true"
+                            placeholder="e.g. View Stalls, Card Perks..."
+                            className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white font-bold focus:outline-none focus:ring-1 focus:ring-[#F37021]"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-zinc-400 block mb-1">
+                            Target Navigation Tab
+                          </label>
+                          <select
+                            value={currentNotice.linkUrl || 'stalls'}
+                            onChange={(e) => setCurrentNotice({ ...currentNotice, linkUrl: e.target.value })}
+                            className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white font-bold focus:outline-none focus:ring-1 focus:ring-[#F37021]"
+                          >
+                            <option value="stalls">Navigate to BMICH Stalls Directory Tab</option>
+                            <option value="perks">Navigate to Sampath Card Perks Tab</option>
+                            <option value="radar">Navigate to Book Radar Tab</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 6. Dismissible Checkbox */}
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      id="isClosableCheckbox"
+                      checked={currentNotice.isClosable ?? true}
+                      onChange={(e) => setCurrentNotice({ ...currentNotice, isClosable: e.target.checked })}
+                      className="w-4 h-4 accent-[#F37021] rounded cursor-pointer"
+                    />
+                    <label htmlFor="isClosableCheckbox" className="text-xs font-semibold text-zinc-300 cursor-pointer select-none">
+                      Allow fair visitors to temporarily dismiss notice with close (X) button
+                    </label>
+                  </div>
+
+                  {/* Save & Publish Actions */}
+                  <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-zinc-800">
+                    <button
+                      type="submit"
+                      disabled={isSavingNotice}
+                      className="px-6 py-3 bg-[#F37021] hover:bg-[#EA580C] text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg active:scale-95 disabled:opacity-50"
+                    >
+                      {isSavingNotice ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Check className="w-4 h-4" />
+                      )}
+                      <span>Save & Publish Notice Banner</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isSavingNotice}
+                      onClick={handleToggleNoticeEnabled}
+                      className={`px-4 py-3 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                        currentNotice.enabled
+                          ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700'
+                          : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                      }`}
+                    >
+                      {currentNotice.enabled ? (
+                        <>
+                          <EyeOff className="w-4 h-4 text-zinc-400" />
+                          <span>Hide Banner From Chat</span>
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="w-4 h-4 text-white" />
+                          <span>Show Banner in Chat</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* SECTION 2: INSTANT PUSH ANNOUNCEMENT BROADCASTS */}
+              <div className="space-y-4 pt-4 border-t border-zinc-800/80">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-[#F37021]" />
+                    <span>Broadcast Notification Feed History</span>
+                  </h4>
+                  <span className="text-[10px] text-zinc-500 font-bold">
+                    {announcements.length} past broadcast(s)
+                  </span>
                 </div>
+
+                <form onSubmit={handleCreateAnnouncement} className="bg-zinc-900 p-5 sm:p-6 rounded-2xl border border-zinc-800 space-y-4 shadow-md">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <select
+                      value={annType}
+                      onChange={(e) => setAnnType(e.target.value as Announcement['type'])}
+                      className="px-3.5 py-3 bg-zinc-950 border border-zinc-700 rounded-xl text-xs text-white font-bold"
+                    >
+                      <option value="discount">Discount Alert 🎁</option>
+                      <option value="urgent">Urgent Notice ⚡</option>
+                      <option value="info">Fair Announcement 📢</option>
+                    </select>
+
+                    <input
+                      type="text"
+                      placeholder="Publish one-time broadcast (e.g. Flash 20% discount at Hall C!)..."
+                      value={annMessage}
+                      onChange={(e) => setAnnMessage(e.target.value)}
+                      className="sm:col-span-3 px-4 py-3 bg-zinc-950 border border-zinc-700 rounded-xl text-xs text-white font-semibold focus:outline-none focus:ring-2 focus:ring-[#F37021]"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 border border-zinc-700"
+                  >
+                    <Megaphone className="w-4 h-4 text-[#F37021]" />
+                    <span>Add to Notification Feed</span>
+                  </button>
+                </form>
+
+                {announcements.length > 0 && (
+                  <div className="space-y-2">
+                    {announcements.map((ann) => (
+                      <div
+                        key={ann.id}
+                        className="p-3.5 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-between gap-4 text-xs"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-[#F37021]/20 text-[#F37021] border border-[#F37021]/30">
+                            {ann.type}
+                          </span>
+                          <span className="text-zinc-200 font-bold">{ann.message}</span>
+                        </div>
+
+                        <button
+                          onClick={() => onDeleteAnnouncement(ann.id)}
+                          className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white font-bold transition-colors cursor-pointer flex items-center gap-1.5 flex-shrink-0"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

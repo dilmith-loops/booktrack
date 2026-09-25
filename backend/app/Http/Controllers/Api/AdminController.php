@@ -229,6 +229,95 @@ class AdminController extends Controller
     }
 
     /**
+     * Get Book Fair Notice Banner configuration.
+     */
+    public function getNoticeBanner(): JsonResponse
+    {
+        $filePath = storage_path('app/book_fair_notice.json');
+        if (file_exists($filePath)) {
+            $data = json_decode(file_get_contents($filePath), true);
+            if (is_array($data)) {
+                if (!isset($data['showBadge'])) {
+                    $data['showBadge'] = true;
+                }
+                return response()->json([
+                    'success' => true,
+                    'notice' => $data,
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'notice' => [
+                'enabled' => true,
+                'message' => 'BMICH Fair Notice: Special discount stalls now open in Hall E! Check them out for exclusive deals.',
+                'badgeText' => 'FAIR NOTICE',
+                'showBadge' => true,
+                'theme' => 'orange',
+                'isTicker' => true,
+                'linkText' => 'View Stalls',
+                'linkUrl' => 'stalls',
+                'isClosable' => true,
+                'updatedAt' => date('c'),
+            ],
+        ]);
+    }
+
+    /**
+     * Set Book Fair Notice Banner configuration (Admin protected).
+     */
+    public function setNoticeBanner(Request $request): JsonResponse
+    {
+        $token = $request->header('X-Admin-Token') ?: $request->bearerToken();
+        if (!$token || !self::isValidToken($token)) {
+            return response()->json(['error' => 'Unauthorized. Administrator credentials required.'], 401);
+        }
+
+        $filePath = storage_path('app/book_fair_notice.json');
+        $existing = [];
+        if (file_exists($filePath)) {
+            $existing = json_decode(file_get_contents($filePath), true) ?: [];
+        }
+
+        $enabled = $request->has('enabled') ? (bool) $request->input('enabled') : ($existing['enabled'] ?? true);
+        $message = trim((string) $request->input('message', $existing['message'] ?? ''));
+        $showBadge = $request->has('showBadge') ? (bool) $request->input('showBadge') : ($existing['showBadge'] ?? true);
+        $badgeText = trim((string) $request->input('badgeText', $existing['badgeText'] ?? 'FAIR NOTICE'));
+        $theme = trim((string) $request->input('theme', $existing['theme'] ?? 'orange'));
+        $isTicker = $request->has('isTicker') ? (bool) $request->input('isTicker') : ($existing['isTicker'] ?? true);
+        $linkText = trim((string) $request->input('linkText', $existing['linkText'] ?? ''));
+        $linkUrl = trim((string) $request->input('linkUrl', $existing['linkUrl'] ?? ''));
+        $isClosable = $request->has('isClosable') ? (bool) $request->input('isClosable') : ($existing['isClosable'] ?? true);
+
+        $data = [
+            'enabled' => $enabled,
+            'message' => $message,
+            'badgeText' => $badgeText,
+            'showBadge' => $showBadge,
+            'theme' => $theme,
+            'isTicker' => $isTicker,
+            'linkText' => $linkText,
+            'linkUrl' => $linkUrl,
+            'isClosable' => $isClosable,
+            'updatedAt' => date('c'),
+            'updatedBy' => env('ADMIN_USERNAME', 'admin'),
+        ];
+
+        $dir = dirname($filePath);
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        @file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT));
+
+        return response()->json([
+            'success' => true,
+            'notice' => $data,
+            'message' => 'Book fair notice banner updated successfully.'
+        ]);
+    }
+
+    /**
      * Run database migrations safely (Admin protected).
      */
     public function runMigrations(Request $request): JsonResponse

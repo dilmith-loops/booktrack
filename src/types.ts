@@ -129,5 +129,22 @@ export interface ModerationSettings {
   updatedBy?: string;
 }
 
+export type NoticeBannerTheme = 'orange' | 'amber' | 'emerald' | 'indigo' | 'rose' | 'dark';
+
+export interface BookFairNoticeBanner {
+  enabled: boolean;
+  message: string;
+  badgeText?: string;
+  showBadge?: boolean;
+  theme?: NoticeBannerTheme;
+  isTicker?: boolean;
+  linkText?: string;
+  linkUrl?: string;
+  isClosable?: boolean;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+
 
 

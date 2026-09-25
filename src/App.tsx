@@ -11,7 +11,7 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { FeatureDemoTour } from './components/FeatureDemoTour';
 import { PromotionsCarousel } from './components/PromotionsCarousel';
-import { Stall, BookSpotting, UserProfile, Announcement, ModerationSettings } from './types';
+import { Stall, BookSpotting, UserProfile, Announcement, ModerationSettings, BookFairNoticeBanner as NoticeBannerType } from './types';
 import { BMICH_STALLS } from './data/initialData';
 import { apiFetch } from './utils/api';
 import { useNotifications } from './hooks/useNotifications';
@@ -96,6 +96,28 @@ export default function App() {
   // Admin Modal & Announcements State
   const [showAdminModal, setShowAdminModal] = useState(() => checkIsAdminRoute());
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+
+  // Book Fair Notice Banner State (Shown below header in chat page)
+  const [noticeBanner, setNoticeBanner] = useState<NoticeBannerType>(() => {
+    try {
+      const saved = localStorage.getItem('sampath_book_fair_notice');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {}
+    return {
+      enabled: true,
+      message: 'BMICH Fair Notice: Special discount stalls now open in Hall E! Check them out for exclusive deals.',
+      badgeText: 'FAIR NOTICE',
+      theme: 'orange',
+      isTicker: true,
+      linkText: 'View Stalls',
+      linkUrl: 'stalls',
+      isClosable: true,
+      updatedAt: new Date().toISOString()
+    };
+  });
+  const [isNoticeDismissed, setIsNoticeDismissed] = useState<boolean>(false);
 
   // Registered spotters list (local storage)
   const [registeredUsers, setRegisteredUsers] = useState<UserProfile[]>(() => {
@@ -282,6 +304,53 @@ export default function App() {
       });
     } catch (err) {
       console.error('Failed to sync moderation settings to server', err);
+    }
+  };
+
+  const checkNoticeBannerStatus = async () => {
+    try {
+      const res = await apiFetch('/api/settings/notice-banner');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.notice) {
+          setNoticeBanner((prev) => {
+            if (prev.message !== data.notice.message || prev.updatedAt !== data.notice.updatedAt) {
+              setIsNoticeDismissed(false);
+            }
+            return data.notice;
+          });
+          localStorage.setItem('sampath_book_fair_notice', JSON.stringify(data.notice));
+        }
+      }
+    } catch {
+      // Keep existing local state on network error
+    }
+  };
+
+  useEffect(() => {
+    checkNoticeBannerStatus();
+    if (showAdminModal) return;
+    const interval = setInterval(checkNoticeBannerStatus, 15000);
+    return () => clearInterval(interval);
+  }, [showAdminModal]);
+
+  const handleUpdateNoticeBanner = async (nextNotice: NoticeBannerType) => {
+    setNoticeBanner(nextNotice);
+    setIsNoticeDismissed(false);
+    localStorage.setItem('sampath_book_fair_notice', JSON.stringify(nextNotice));
+
+    try {
+      const token = sessionStorage.getItem('sampath_admin_token') || '';
+      await apiFetch('/api/settings/notice-banner', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': token
+        },
+        body: JSON.stringify(nextNotice)
+      });
+    } catch (err) {
+      console.error('Failed to sync notice banner to server', err);
     }
   };
 
@@ -1252,6 +1321,8 @@ export default function App() {
           onRefreshStalls={loadData}
           moderationSettings={moderationSettings}
           onUpdateModerationSettings={handleUpdateModerationSettings}
+          noticeBanner={noticeBanner}
+          onUpdateNoticeBanner={handleUpdateNoticeBanner}
         />
 
         {/* 4. Interactive Feature Demo Tour */}
@@ -1267,24 +1338,7 @@ export default function App() {
             {/* Offline Status Bar */}
             <OfflineIndicator />
 
-        {/* Live Broadcast Announcement Banner */}
-        {activeAnnouncement && (
-          <div className="bg-[#F37021] text-white px-3 py-2 text-xs font-bold flex items-center justify-between shadow-xs border-b border-orange-600 animate-in slide-in-from-top duration-300">
-            <div className="flex items-center gap-2 min-w-0 pr-2">
-              <Megaphone className="w-4 h-4 text-orange-200 flex-shrink-0 animate-pulse" />
-              <span className="truncate">{activeAnnouncement.message}</span>
-            </div>
-            <button
-              onClick={() => handleDeleteAnnouncement(activeAnnouncement.id)}
-              className="text-orange-200 hover:text-white font-black text-xs cursor-pointer flex-shrink-0"
-              title="Dismiss Alert"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-
-        {/* Streamlined Mobile PWA Top App Bar */}
+        {/* Streamlined Mobile PWA Top App Bar with Embedded Chat Header Notice Banner */}
         <Header
           activeTab={activeTab}
           spotsCount={spots.length}
@@ -1297,6 +1351,10 @@ export default function App() {
           onMarkNotificationAsRead={markAsRead}
           onMarkAllNotificationsAsRead={markAllAsRead}
           onSelectNotification={handleSelectNotification}
+          noticeBanner={noticeBanner}
+          isNoticeDismissed={isNoticeDismissed}
+          onDismissNotice={() => setIsNoticeDismissed(true)}
+          onNavigateTab={(tab) => handleSelectTab(tab)}
         />
 
         {/* Main PWA View Switching */}

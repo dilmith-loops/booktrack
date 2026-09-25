@@ -2,7 +2,8 @@ import React from 'react';
 import { User } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 import { NotificationBell } from './NotificationBell';
-import { UserProfile, AppNotification, PwaTab } from '../types';
+import { UserProfile, AppNotification, PwaTab, BookFairNoticeBanner as NoticeBannerType } from '../types';
+import { BookFairNoticeBanner } from './BookFairNoticeBanner';
 
 interface HeaderProps {
   activeTab?: PwaTab | string;
@@ -16,6 +17,10 @@ interface HeaderProps {
   onMarkNotificationAsRead?: (id: string) => void;
   onMarkAllNotificationsAsRead?: () => void;
   onSelectNotification?: (spotId: string) => void;
+  noticeBanner?: NoticeBannerType;
+  isNoticeDismissed?: boolean;
+  onDismissNotice?: () => void;
+  onNavigateTab?: (tab: PwaTab) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -28,7 +33,11 @@ export const Header: React.FC<HeaderProps> = ({
   unreadNotificationsCount = 0,
   onMarkNotificationAsRead = () => {},
   onMarkAllNotificationsAsRead = () => {},
-  onSelectNotification = () => {}
+  onSelectNotification = () => {},
+  noticeBanner,
+  isNoticeDismissed = false,
+  onDismissNotice,
+  onNavigateTab
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-zinc-200/90 shadow-xs">
@@ -102,6 +111,15 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Book Fair Notice: Thin banner section directly below header in chat page */}
+      {activeTab === 'chat' && noticeBanner?.enabled && !isNoticeDismissed && (
+        <BookFairNoticeBanner
+          notice={noticeBanner}
+          onDismiss={onDismissNotice}
+          onNavigateTab={onNavigateTab}
+        />
+      )}
     </header>
   );
 };

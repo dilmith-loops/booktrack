@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { Stall, BookSpotting } from './src/types';
@@ -350,6 +351,67 @@ async function startServer() {
       success: true,
       settings: moderationSettings,
       message: 'AI safety & moderation settings updated successfully.'
+    });
+  });
+
+  // Book Fair Notice Banner Settings
+  let bookFairNotice = {
+    enabled: true,
+    message: 'BMICH Fair Notice: Special discount stalls now open in Hall E! Check them out for exclusive deals.',
+    badgeText: 'FAIR NOTICE',
+    showBadge: true,
+    theme: 'orange',
+    isTicker: true,
+    linkText: 'View Stalls',
+    linkUrl: 'stalls',
+    isClosable: true,
+    updatedAt: new Date().toISOString()
+  };
+
+  const noticeFilePath = path.resolve(__dirname, 'backend/storage/app/book_fair_notice.json');
+  try {
+    if (fs.existsSync(noticeFilePath)) {
+      const saved = JSON.parse(fs.readFileSync(noticeFilePath, 'utf-8'));
+      if (saved && typeof saved === 'object') {
+        bookFairNotice = { ...bookFairNotice, ...saved };
+      }
+    }
+  } catch {}
+
+  app.get('/api/settings/notice-banner', (req, res) => {
+    res.json({
+      success: true,
+      notice: bookFairNotice
+    });
+  });
+
+  app.post('/api/settings/notice-banner', (req, res) => {
+    const { enabled, message, badgeText, showBadge, theme, isTicker, linkText, linkUrl, isClosable } = req.body;
+    bookFairNotice = {
+      enabled: enabled !== undefined ? Boolean(enabled) : bookFairNotice.enabled,
+      message: typeof message === 'string' ? message.trim() : bookFairNotice.message,
+      badgeText: typeof badgeText === 'string' ? badgeText.trim() : bookFairNotice.badgeText,
+      showBadge: showBadge !== undefined ? Boolean(showBadge) : (bookFairNotice.showBadge ?? true),
+      theme: typeof theme === 'string' ? theme : bookFairNotice.theme,
+      isTicker: isTicker !== undefined ? Boolean(isTicker) : bookFairNotice.isTicker,
+      linkText: typeof linkText === 'string' ? linkText.trim() : bookFairNotice.linkText,
+      linkUrl: typeof linkUrl === 'string' ? linkUrl.trim() : bookFairNotice.linkUrl,
+      isClosable: isClosable !== undefined ? Boolean(isClosable) : bookFairNotice.isClosable,
+      updatedAt: new Date().toISOString()
+    };
+
+    try {
+      const dir = path.dirname(noticeFilePath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(noticeFilePath, JSON.stringify(bookFairNotice, null, 2));
+    } catch (e) {
+      console.warn('Notice banner write file warning:', e);
+    }
+
+    res.json({
+      success: true,
+      notice: bookFairNotice,
+      message: 'Book fair notice banner updated successfully.'
     });
   });
 

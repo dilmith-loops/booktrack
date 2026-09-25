@@ -26,7 +26,7 @@ Route::prefix('auth')->middleware('throttle:60,1')->group(function () {
 
 // Admin Authentication Routes
 Route::prefix('admin')->group(function () {
-    Route::post('/login', [AdminController::class, 'login'])->middleware('throttle:5,1');
+    Route::post('/login', [AdminController::class, 'login'])->middleware(app()->isLocal() ? 'throttle:120,1' : 'throttle:10,1');
     Route::post('/verify', [AdminController::class, 'verify']);
     Route::post('/migrate', [AdminController::class, 'runMigrations']);
 });
@@ -36,6 +36,8 @@ Route::get('/settings/maintenance', [AdminController::class, 'getMaintenanceStat
 Route::post('/settings/maintenance', [AdminController::class, 'setMaintenanceMode']);
 Route::get('/settings/moderation', [AdminController::class, 'getModerationSettings']);
 Route::post('/settings/moderation', [AdminController::class, 'setModerationSettings']);
+Route::get('/settings/notice-banner', [AdminController::class, 'getNoticeBanner']);
+Route::post('/settings/notice-banner', [AdminController::class, 'setNoticeBanner']);
 
 
 // Registered Users Management (Admin protected)
