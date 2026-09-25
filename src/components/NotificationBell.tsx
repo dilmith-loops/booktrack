@@ -10,8 +10,7 @@ import {
   ArrowRight,
   BookOpen,
   MapPin,
-  Megaphone,
-  Sparkles
+  Megaphone
 } from 'lucide-react';
 import { AppNotification, UserProfile } from '../types';
 
@@ -245,6 +244,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                 const isMention = n.type === 'mention';
                 const isAnnouncement = n.type === 'announcement';
                 const isSystem = n.type === 'system';
+                const isSampathOfficial = isSystem || n.senderName?.toLowerCase().includes('sampath') || n.senderHandle === '@sampath_official';
 
                 let iconNode = <Bell className="w-4 h-4" />;
                 let iconBg = 'bg-gradient-to-tr from-[#EA580C] to-[#F37021]';
@@ -272,8 +272,6 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                   tagLabel = 'Fair Alert';
                   tagClass = 'bg-purple-100 text-purple-900';
                 } else if (isSystem) {
-                  iconNode = <Sparkles className="w-4 h-4" />;
-                  iconBg = 'bg-gradient-to-tr from-amber-500 to-orange-500';
                   tagLabel = 'Official';
                   tagClass = 'bg-amber-100 text-amber-900';
                 }
@@ -290,12 +288,22 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                     }`}
                   >
                     <div className="flex items-start gap-2.5">
-                      {/* Icon */}
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white shadow-xs ${iconBg}`}
-                      >
-                        {iconNode}
-                      </div>
+                      {/* Icon / Avatar */}
+                      {isSampathOfficial ? (
+                        <div className="w-8 h-8 rounded-full bg-white ring-2 ring-orange-400/40 border border-orange-200/90 flex items-center justify-center p-0.5 flex-shrink-0 shadow-xs overflow-hidden">
+                          <img
+                            src={`${import.meta.env.BASE_URL}logo-icon.png`}
+                            alt="Sampath Bank"
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white shadow-xs ${iconBg}`}
+                        >
+                          {iconNode}
+                        </div>
+                      )}
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">
