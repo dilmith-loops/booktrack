@@ -739,6 +739,45 @@ async function startServer() {
     res.status(400).json({ error: 'Invalid status' });
   });
 
+  // Permanently delete a spot
+  app.delete('/api/spots/:id', (req, res) => {
+    const { id } = req.params;
+    const initialLen = communitySpots.length;
+    communitySpots = communitySpots.filter(s => s.id !== id);
+    res.json({
+      success: true,
+      deleted: communitySpots.length < initialLen,
+      remaining: communitySpots.length
+    });
+  });
+
+  // Archive a spot
+  app.post('/api/spots/:id/archive', (req, res) => {
+    const { id } = req.params;
+    const { userHandle } = req.body || {};
+    const spot = communitySpots.find(s => s.id === id);
+    if (!spot) {
+      return res.status(404).json({ error: 'Spotting not found' });
+    }
+    spot.isArchived = true;
+    spot.archivedAt = new Date().toISOString();
+    spot.archivedBy = userHandle || 'user';
+    res.json({ success: true, spot });
+  });
+
+  // Unarchive a spot
+  app.post('/api/spots/:id/unarchive', (req, res) => {
+    const { id } = req.params;
+    const spot = communitySpots.find(s => s.id === id);
+    if (!spot) {
+      return res.status(404).json({ error: 'Spotting not found' });
+    }
+    spot.isArchived = false;
+    delete spot.archivedAt;
+    delete spot.archivedBy;
+    res.json({ success: true, spot });
+  });
+
   // Serve public static assets directly
   const publicPath = path.join(process.cwd(), 'public');
   app.use(express.static(publicPath));

@@ -154,33 +154,34 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
   }, [isInitialLoading, highlightedSpotId, scrollToLastMessage]);
 
   // Automatically refresh chat feed with the latest 10 messages and show the last message
-  // when the user adds a post by themselves or deletes/archives their own post
+  // IMMEDIATELY on time when the user adds a post by themselves or deletes/archives their own post
   useEffect(() => {
     if (!chatRefreshKey) return;
 
-    // Reset pagination to latest 10 messages
+    // Reset pagination to latest 10 messages immediately on time
     setVisibleCount(INITIAL_PAGE_SIZE);
     previousSpotsLengthRef.current = spots.length;
-    setIsInitialLoading(true);
+    hasInitialScrolledRef.current = true;
+    isLoadingOlderRef.current = false;
+    setIsLoadingOlder(false);
 
-    const timer = setTimeout(() => {
-      setIsInitialLoading(false);
-      requestAnimationFrame(() => {
-        scrollToLastMessage('smooth');
-      });
-      const t1 = setTimeout(() => {
-        scrollToLastMessage('smooth');
-      }, 80);
-      const t2 = setTimeout(() => {
-        scrollToLastMessage('auto');
-      }, 250);
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
-    }, 380);
+    // Scroll immediately to show the last message at the bottom
+    scrollToLastMessage('smooth');
+    const raf = requestAnimationFrame(() => {
+      scrollToLastMessage('smooth');
+    });
+    const t1 = setTimeout(() => {
+      scrollToLastMessage('smooth');
+    }, 50);
+    const t2 = setTimeout(() => {
+      scrollToLastMessage('smooth');
+    }, 150);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [chatRefreshKey, scrollToLastMessage, spots.length]);
 
   // When background/server polling brings new messages (and not during refresh or initial load)

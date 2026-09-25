@@ -634,7 +634,13 @@ export default function App() {
   }, [pollLatestSpots, isMaintenanceMode]);
 
   const handleSpotAdded = (newSpot: BookSpotting) => {
-    setSpots((prev) => [newSpot, ...prev]);
+    setSpots((prev) => {
+      const next = [newSpot, ...prev];
+      try {
+        localStorage.setItem('sampath_bmich_spots', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
     setChatRefreshKey((prev) => prev + 1);
     setViewedSpotIds((prev) => {
       const next = new Set(prev);
@@ -765,14 +771,24 @@ export default function App() {
   };
 
   const handleDeleteSpot = async (spotId: string, userHandle?: string) => {
-    setSpots((prev) => prev.filter((s) => s.id !== spotId));
+    const handle = userHandle || userProfile?.handle || '';
+    setSpots((prev) => {
+      const next = prev.filter((s) => s.id !== spotId);
+      try {
+        localStorage.setItem('sampath_bmich_spots', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
     setChatRefreshKey((prev) => prev + 1);
     try {
       await apiFetch(`/api/spots/${spotId}`, {
         method: 'DELETE',
-        headers: getAdminHeaders(),
+        headers: {
+          ...getAdminHeaders(),
+          'X-User-Handle': handle
+        },
         body: JSON.stringify({
-          userHandle: userHandle || userProfile?.handle
+          userHandle: handle
         })
       });
       pollLatestSpots();
@@ -783,8 +799,8 @@ export default function App() {
 
   const handleArchiveSpot = async (spotId: string, userHandle?: string) => {
     const handle = userHandle || userProfile?.handle || 'user';
-    setSpots((prev) =>
-      prev.map((s) =>
+    setSpots((prev) => {
+      const next = prev.map((s) =>
         s.id === spotId
           ? {
               ...s,
@@ -793,15 +809,23 @@ export default function App() {
               archivedBy: handle
             }
           : s
-      )
-    );
+      );
+      try {
+        localStorage.setItem('sampath_bmich_spots', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
     setChatRefreshKey((prev) => prev + 1);
     try {
       await apiFetch(`/api/spots/${spotId}/archive`, {
         method: 'POST',
-        headers: getAdminHeaders(),
+        headers: {
+          ...getAdminHeaders(),
+          'X-User-Handle': handle
+        },
         body: JSON.stringify({ userHandle: handle })
       });
+      pollLatestSpots();
     } catch (err) {
       console.error('Error archiving spot:', err);
     }
