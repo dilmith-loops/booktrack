@@ -37,7 +37,7 @@ export default function App() {
           }
         }
       }
-    } catch {}
+    } catch { }
     return BMICH_STALLS;
   });
   const [spots, setSpots] = useState<BookSpotting[]>(() => {
@@ -55,7 +55,7 @@ export default function App() {
           return realSpots;
         }
       }
-    } catch {}
+    } catch { }
     return [];
   });
   const spotsRef = useRef<BookSpotting[]>(spots);
@@ -77,7 +77,7 @@ export default function App() {
         const arr = JSON.parse(saved);
         if (Array.isArray(arr)) return new Set(arr);
       }
-    } catch {}
+    } catch { }
     return new Set();
   });
 
@@ -86,7 +86,7 @@ export default function App() {
     try {
       const saved = localStorage.getItem('sampath_last_viewed_chat_time');
       if (saved) return Number(saved);
-    } catch {}
+    } catch { }
     return Date.now();
   });
 
@@ -109,7 +109,7 @@ export default function App() {
       if (saved) {
         return JSON.parse(saved);
       }
-    } catch {}
+    } catch { }
     return {
       enabled: true,
       message: 'BMICH Fair Notice: Special discount stalls now open in Hall E! Check them out for exclusive deals.',
@@ -166,7 +166,7 @@ export default function App() {
         const parsed = JSON.parse(saved);
         if (!parsed?.isDisabled) return false;
       }
-    } catch {}
+    } catch { }
     return true;
   });
   const [showRegistration, setShowRegistration] = useState(false);
@@ -181,7 +181,7 @@ export default function App() {
         const parsed = JSON.parse(saved);
         return Boolean(parsed.enabled);
       }
-    } catch {}
+    } catch { }
     return false;
   });
 
@@ -192,7 +192,7 @@ export default function App() {
         const parsed = JSON.parse(saved);
         if (parsed.message) return parsed.message;
       }
-    } catch {}
+    } catch { }
     return 'Sampath Book Finder is temporarily offline for scheduled system updates and stall inventory syncing. We will be back online shortly.';
   });
 
@@ -219,7 +219,7 @@ export default function App() {
             'sampath_maintenance_mode',
             JSON.stringify({ enabled, message: data.message })
           );
-        } catch {}
+        } catch { }
       }
 
       if (modRes.ok) {
@@ -233,7 +233,7 @@ export default function App() {
         setModerationSettings(settings);
         try {
           localStorage.setItem('sampath_moderation_settings', JSON.stringify(settings));
-        } catch {}
+        } catch { }
       }
 
       if (nRes.ok) {
@@ -247,7 +247,7 @@ export default function App() {
           });
           try {
             localStorage.setItem('sampath_book_fair_notice', JSON.stringify(data.notice));
-          } catch {}
+          } catch { }
         }
       }
     } catch {
@@ -306,7 +306,7 @@ export default function App() {
       if (saved) {
         return JSON.parse(saved);
       }
-    } catch {}
+    } catch { }
     return {
       profanityFilter: true,
       aiSpotVerification: true,
@@ -384,13 +384,13 @@ export default function App() {
   const handleLogoutDueToDisabled = React.useCallback((message?: string) => {
     try {
       localStorage.removeItem('sampath_bookfair_user');
-    } catch {}
+    } catch { }
     setUserProfile(null);
     setShowRegistration(true);
     setShowSplash(false);
     setDisabledAccountAlert(
       message ||
-        'Your spotter account has been disabled by an administrator. You have been logged out automatically.'
+      'Your spotter account has been disabled by an administrator. You have been logged out automatically.'
     );
   }, []);
 
@@ -470,7 +470,7 @@ export default function App() {
       setLastViewedChatTime(now);
       try {
         localStorage.setItem('sampath_last_viewed_chat_time', String(now));
-      } catch {}
+      } catch { }
 
       setViewedSpotIds((prev) => {
         let hasNew = false;
@@ -485,7 +485,7 @@ export default function App() {
           try {
             const arr = Array.from(next).slice(-500);
             localStorage.setItem('sampath_viewed_spot_ids', JSON.stringify(arr));
-          } catch {}
+          } catch { }
           return next;
         }
         return prev;
@@ -499,7 +499,7 @@ export default function App() {
       setLastViewedChatTime(now);
       try {
         localStorage.setItem('sampath_last_viewed_chat_time', String(now));
-      } catch {}
+      } catch { }
 
       setViewedSpotIds((prev) => {
         let hasNew = false;
@@ -514,7 +514,7 @@ export default function App() {
           try {
             const arr = Array.from(next).slice(-500);
             localStorage.setItem('sampath_viewed_spot_ids', JSON.stringify(arr));
-          } catch {}
+          } catch { }
           return next;
         }
         return prev;
@@ -589,7 +589,7 @@ export default function App() {
             handleLogoutDueToDisabled(sData.error || sData.message);
             return;
           }
-        } catch {}
+        } catch { }
       }
 
       const isAdmin = Boolean(sessionStorage.getItem('sampath_admin_token'));
@@ -614,7 +614,7 @@ export default function App() {
             setStalls(cleanStalls);
             try {
               localStorage.setItem('sampath_bmich_stalls', JSON.stringify(cleanStalls));
-            } catch {}
+            } catch { }
           }
         }
       }
@@ -634,7 +634,7 @@ export default function App() {
           setSpots(cleanSpots);
           try {
             localStorage.setItem('sampath_bmich_spots', JSON.stringify(cleanSpots));
-          } catch {}
+          } catch { }
         }
       }
     } catch (err) {
@@ -686,7 +686,7 @@ export default function App() {
 
             try {
               localStorage.setItem('sampath_bmich_spots', JSON.stringify(merged));
-            } catch {}
+            } catch { }
             return merged;
           });
         }
@@ -713,14 +713,14 @@ export default function App() {
     return () => window.removeEventListener('focus', handleFocus);
   }, [loadData]);
 
-  // Periodic background auto-fetch for chat spots feed (gentle 25 seconds, only active when chat tab is visible)
+  // Periodic background auto-fetch for chat spots feed (every 10 minutes, only active when chat tab is visible)
   useEffect(() => {
     if (activeTab !== 'chat') return;
 
     const pollInterval = setInterval(() => {
       if (document.hidden || isMaintenanceMode) return;
       pollLatestSpots();
-    }, 25000);
+    }, 10 * 60 * 1000); // 10 minutes (600,000 ms)
 
     return () => clearInterval(pollInterval);
   }, [pollLatestSpots, isMaintenanceMode, activeTab]);
@@ -730,7 +730,7 @@ export default function App() {
       const next = [newSpot, ...prev];
       try {
         localStorage.setItem('sampath_bmich_spots', JSON.stringify(next));
-      } catch {}
+      } catch { }
       return next;
     });
     setChatRefreshKey((prev) => prev + 1);
@@ -740,7 +740,7 @@ export default function App() {
       try {
         const arr = Array.from(next).slice(-500);
         localStorage.setItem('sampath_viewed_spot_ids', JSON.stringify(arr));
-      } catch {}
+      } catch { }
       return next;
     });
     // Save to user's authored spots so replies trigger notifications
@@ -751,7 +751,7 @@ export default function App() {
         arr.push(newSpot.id);
         localStorage.setItem('sampath_my_posted_spots', JSON.stringify(arr));
       }
-    } catch {}
+    } catch { }
 
     trackEvent('spot_added', {
       book_name: newSpot.bookName,
@@ -869,7 +869,7 @@ export default function App() {
       const next = prev.filter((s) => s.id !== spotId);
       try {
         localStorage.setItem('sampath_bmich_spots', JSON.stringify(next));
-      } catch {}
+      } catch { }
       return next;
     });
     setChatRefreshKey((prev) => prev + 1);
@@ -896,16 +896,16 @@ export default function App() {
       const next = prev.map((s) =>
         s.id === spotId
           ? {
-              ...s,
-              isArchived: true,
-              archivedAt: new Date().toISOString(),
-              archivedBy: handle
-            }
+            ...s,
+            isArchived: true,
+            archivedAt: new Date().toISOString(),
+            archivedBy: handle
+          }
           : s
       );
       try {
         localStorage.setItem('sampath_bmich_spots', JSON.stringify(next));
-      } catch {}
+      } catch { }
       return next;
     });
     setChatRefreshKey((prev) => prev + 1);
@@ -929,11 +929,11 @@ export default function App() {
       prev.map((s) =>
         s.id === spotId
           ? {
-              ...s,
-              isArchived: false,
-              archivedAt: undefined,
-              archivedBy: undefined
-            }
+            ...s,
+            isArchived: false,
+            archivedAt: undefined,
+            archivedBy: undefined
+          }
           : s
       )
     );
@@ -1041,7 +1041,7 @@ export default function App() {
       const updated = prev.filter((s) => s.id !== stallId);
       try {
         localStorage.setItem('sampath_bmich_stalls', JSON.stringify(updated));
-      } catch {}
+      } catch { }
       return updated;
     });
     try {
@@ -1066,7 +1066,7 @@ export default function App() {
       });
       try {
         localStorage.setItem('sampath_bmich_stalls', JSON.stringify(updated));
-      } catch {}
+      } catch { }
       return updated;
     });
 
@@ -1097,7 +1097,7 @@ export default function App() {
     setStalls(updatedStalls);
     try {
       localStorage.setItem('sampath_bmich_stalls', JSON.stringify(updatedStalls));
-    } catch {}
+    } catch { }
 
     try {
       await apiFetch('/api/stalls/import', {
@@ -1361,221 +1361,220 @@ export default function App() {
             {/* Offline Status Bar */}
             <OfflineIndicator />
 
-        {/* Streamlined Mobile PWA Top App Bar with Embedded Chat Header Notice Banner */}
-        <Header
-          activeTab={activeTab}
-          spotsCount={spots.length}
-          stallsCount={stalls.length}
-          userProfile={userProfile}
-          onOpenProfile={() => setShowRegistration(true)}
-          onReplaySplash={() => setShowSplash(true)}
-          notifications={notifications}
-          unreadNotificationsCount={unreadCount}
-          onMarkNotificationAsRead={markAsRead}
-          onMarkAllNotificationsAsRead={markAllAsRead}
-          onSelectNotification={handleSelectNotification}
-          noticeBanner={noticeBanner}
-          isNoticeDismissed={isNoticeDismissed}
-          onDismissNotice={() => setIsNoticeDismissed(true)}
-          onNavigateTab={(tab) => handleSelectTab(tab)}
-        />
-
-        {/* Main PWA View Switching */}
-        <main className="flex-1 flex flex-col pb-16">
-          {/* TAB 1: WhatsApp-Style Group Chat Feed */}
-          {activeTab === 'chat' && (
-            <CommunityFeed
-              spots={spots.filter((s) => !s.isArchived)}
-              selectedHallFilter={selectedHallFilter}
-              onSelectHallFilter={setSelectedHallFilter}
-              chatRefreshKey={chatRefreshKey}
-              onOpenNewSpotModal={(title?: string, replySpot?: BookSpotting) => {
-                setInitialBookForModal(title || '');
-                setInitialStallIdForModal('');
-                setReplyingToSpot(replySpot || null);
-                setIsPostModalOpen(true);
-              }}
-              onUpvoteSpot={handleUpvoteSpot}
-              onRateSpot={handleRateSpot}
-              onUpdateStatus={handleUpdateStatus}
-              onViewPhotoLightbox={openLightbox}
+            {/* Streamlined Mobile PWA Top App Bar with Embedded Chat Header Notice Banner */}
+            <Header
+              activeTab={activeTab}
+              spotsCount={spots.length}
+              stallsCount={stalls.length}
               userProfile={userProfile}
-              stalls={visibleStalls}
-              onQuickSpotSubmit={handleSpotAdded}
-              onArchiveSpot={handleArchiveSpot}
-              onDeleteSpot={handleDeleteSpot}
-              highlightedSpotId={highlightedSpotId}
+              onOpenProfile={() => setShowRegistration(true)}
+              onReplaySplash={() => setShowSplash(true)}
+              notifications={notifications}
+              unreadNotificationsCount={unreadCount}
+              onMarkNotificationAsRead={markAsRead}
+              onMarkAllNotificationsAsRead={markAllAsRead}
+              onSelectNotification={handleSelectNotification}
+              noticeBanner={noticeBanner}
+              isNoticeDismissed={isNoticeDismissed}
+              onDismissNotice={() => setIsNoticeDismissed(true)}
+              onNavigateTab={(tab) => handleSelectTab(tab)}
             />
-          )}
 
-          {/* TAB 2: Dedicated Book Radar */}
-          {activeTab === 'radar' && (
-            <div className="p-3.5 sm:p-4 space-y-4 bg-zinc-50 flex-1">
-              <QuickBookLookup
-                spots={spots}
-                onSelectSpot={(spot) => {
-                  if (spot.images.length > 0) {
-                    openLightbox(spot.images, spot.bookName, spot.stallName, 0);
-                  }
-                }}
-                onOpenNewSpotWithTitle={handleOpenNewSpotWithTitle}
-              />
-            </div>
-          )}
+            {/* Main PWA View Switching */}
+            <main className="flex-1 flex flex-col pb-16">
+              {/* TAB 1: WhatsApp-Style Group Chat Feed */}
+              {activeTab === 'chat' && (
+                <CommunityFeed
+                  spots={spots.filter((s) => !s.isArchived)}
+                  selectedHallFilter={selectedHallFilter}
+                  onSelectHallFilter={setSelectedHallFilter}
+                  chatRefreshKey={chatRefreshKey}
+                  onOpenNewSpotModal={(title?: string, replySpot?: BookSpotting) => {
+                    setInitialBookForModal(title || '');
+                    setInitialStallIdForModal('');
+                    setReplyingToSpot(replySpot || null);
+                    setIsPostModalOpen(true);
+                  }}
+                  onUpvoteSpot={handleUpvoteSpot}
+                  onRateSpot={handleRateSpot}
+                  onUpdateStatus={handleUpdateStatus}
+                  onViewPhotoLightbox={openLightbox}
+                  userProfile={userProfile}
+                  stalls={visibleStalls}
+                  onQuickSpotSubmit={handleSpotAdded}
+                  onArchiveSpot={handleArchiveSpot}
+                  onDeleteSpot={handleDeleteSpot}
+                  highlightedSpotId={highlightedSpotId}
+                />
+              )}
 
-          {/* TAB 3: BMICH Stalls Guide */}
-          {activeTab === 'stalls' && (
-            <div className="p-3.5 sm:p-4 space-y-3 bg-zinc-50 flex-1">
-              <div className="bg-white p-3.5 rounded-2xl border border-zinc-200 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-[#F37021]" />
-                    <h2 className="text-sm font-black text-zinc-900">BMICH Stalls Directory</h2>
-                  </div>
-                  <span className="text-[11px] bg-orange-50 text-[#EA580C] font-bold px-2 py-0.5 rounded-full">
-                    {filteredStalls.length} Stalls
-                  </span>
-                </div>
-
-                {/* Search */}
-                <div className="relative">
-                  <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    value={stallSearch}
-                    onChange={(e) => setStallSearch(e.target.value)}
-                    placeholder="Search publisher or stall number..."
-                    className="w-full pl-9 pr-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#F37021]"
+              {/* TAB 2: Dedicated Book Radar */}
+              {activeTab === 'radar' && (
+                <div className="p-3.5 sm:p-4 space-y-4 bg-zinc-50 flex-1">
+                  <QuickBookLookup
+                    spots={spots}
+                    onSelectSpot={(spot) => {
+                      if (spot.images.length > 0) {
+                        openLightbox(spot.images, spot.bookName, spot.stallName, 0);
+                      }
+                    }}
+                    onOpenNewSpotWithTitle={handleOpenNewSpotWithTitle}
                   />
                 </div>
+              )}
 
-                {/* Hall Chips sorted using Stall number (letters A, K, etc.) */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                  {availableHalls.map((h) => (
-                    <button
-                      key={h.key}
-                      onClick={() => setStallHallFilter(h.key)}
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap cursor-pointer transition-colors ${
-                        stallHallFilter === h.key
-                          ? 'bg-zinc-900 text-white'
-                          : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-                      }`}
-                    >
-                      {h.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Stalls List */}
-              <div className="space-y-2">
-                {filteredStalls.map((stall) => (
-                  <div
-                    key={stall.id}
-                    className="p-3 bg-white border border-zinc-200 rounded-xl shadow-xs flex items-center justify-between gap-2"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-extrabold text-xs text-zinc-900 truncate">
-                        {stall.name}
+              {/* TAB 3: BMICH Stalls Guide */}
+              {activeTab === 'stalls' && (
+                <div className="p-3.5 sm:p-4 space-y-3 bg-zinc-50 flex-1">
+                  <div className="bg-white p-3.5 rounded-2xl border border-zinc-200 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-[#F37021]" />
+                        <h2 className="text-sm font-black text-zinc-900">BMICH Stalls Directory</h2>
                       </div>
-                      <div className="text-[11px] text-zinc-600 font-medium flex items-center gap-1.5 mt-0.5">
-                        <MapPin className="w-3 h-3 text-[#F37021] flex-shrink-0" />
-                        <span className="font-bold text-zinc-900 font-mono">Stall {stall.stallNumber}</span>
-                      </div>
-                      <span className="inline-block mt-1 text-[10px] text-zinc-600 bg-zinc-100 px-1.5 py-0.2 rounded font-medium">
-                        {stall.category}
+                      <span className="text-[11px] bg-orange-50 text-[#EA580C] font-bold px-2 py-0.5 rounded-full">
+                        {filteredStalls.length} Stalls
                       </span>
                     </div>
 
-                    <button
-                      onClick={() => {
-                        setInitialBookForModal('');
-                        setInitialStallIdForModal(stall.id);
-                        setIsPostModalOpen(true);
-                      }}
-                      className="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 text-[#EA580C] text-[10px] font-black rounded-lg border border-orange-200 flex-shrink-0 cursor-pointer"
-                    >
-                      + Spot Book
-                    </button>
+                    {/* Search */}
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
+                      <input
+                        type="text"
+                        value={stallSearch}
+                        onChange={(e) => setStallSearch(e.target.value)}
+                        placeholder="Search publisher or stall number..."
+                        className="w-full pl-9 pr-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#F37021]"
+                      />
+                    </div>
+
+                    {/* Hall Chips sorted using Stall number (letters A, K, etc.) */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                      {availableHalls.map((h) => (
+                        <button
+                          key={h.key}
+                          onClick={() => setStallHallFilter(h.key)}
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap cursor-pointer transition-colors ${stallHallFilter === h.key
+                              ? 'bg-zinc-900 text-white'
+                              : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+                            }`}
+                        >
+                          {h.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
+
+                  {/* Stalls List */}
+                  <div className="space-y-2">
+                    {filteredStalls.map((stall) => (
+                      <div
+                        key={stall.id}
+                        className="p-3 bg-white border border-zinc-200 rounded-xl shadow-xs flex items-center justify-between gap-2"
+                      >
+                        <div className="min-w-0">
+                          <div className="font-extrabold text-xs text-zinc-900 truncate">
+                            {stall.name}
+                          </div>
+                          <div className="text-[11px] text-zinc-600 font-medium flex items-center gap-1.5 mt-0.5">
+                            <MapPin className="w-3 h-3 text-[#F37021] flex-shrink-0" />
+                            <span className="font-bold text-zinc-900 font-mono">Stall {stall.stallNumber}</span>
+                          </div>
+                          <span className="inline-block mt-1 text-[10px] text-zinc-600 bg-zinc-100 px-1.5 py-0.2 rounded font-medium">
+                            {stall.category}
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setInitialBookForModal('');
+                            setInitialStallIdForModal(stall.id);
+                            setIsPostModalOpen(true);
+                          }}
+                          className="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 text-[#EA580C] text-[10px] font-black rounded-lg border border-orange-200 flex-shrink-0 cursor-pointer"
+                        >
+                          + Spot Book
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: Sampath Cardholder Privileges */}
+              {activeTab === 'perks' && (
+                <div className="p-3.5 sm:p-4 space-y-3.5 bg-zinc-50 flex-1">
+                  <div className="bg-gradient-to-r from-[#F37021] via-[#EA580C] to-[#C2410C] text-white p-4 rounded-2xl shadow-sm space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-orange-200">
+                      <CreditCard className="w-4 h-4" />
+                      <span>Official Fair Sponsor</span>
+                    </div>
+                    <h3 className="text-base font-black text-white leading-tight">
+                      Sampath Bank Cardholder Privileges
+                    </h3>
+                    <p className="text-xs text-orange-100 font-medium">
+                      Enjoy instant discounts and on-site banking services at the Colombo International Book Fair 2026.
+                    </p>
+                  </div>
+
+                  {/* Promotion Flyers Carousel & Instant Savings Notice */}
+                  <PromotionsCarousel />
+
+                  <div className="bg-white p-3.5 rounded-2xl border border-zinc-200 shadow-xs space-y-2.5">
+                    <h4 className="text-xs font-black text-zinc-900 uppercase tracking-wider">
+                      Fairground Services:
+                    </h4>
+
+                    <div className="flex items-start gap-2 text-xs text-zinc-700 p-2 bg-zinc-50 rounded-xl">
+                      <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Mobile ATMs & Cash Booths:</strong> Located at Sirimavo Bandaranaike Hall & Main Entrance for fast cash withdrawals.
+                      </span>
+                    </div>
+
+                    <div className="flex items-start gap-2 text-xs text-zinc-700 p-2 bg-zinc-50 rounded-xl">
+                      <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Instant Card Activation:</strong> Visit the Sampath Pavilion at Hall A foyer for on-the-spot card assistance.
+                      </span>
+                    </div>
+
+                    <div className="flex items-start gap-2 text-xs text-zinc-700 p-2 bg-zinc-50 rounded-xl">
+                      <Phone className="w-4 h-4 text-[#F37021] flex-shrink-0 mt-0.5" />
+                      <span>
+                        <strong>24/7 Fair Hotline:</strong> Call 011 2 300 604 for cardholder assistance.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </main>
+
+            {/* 4. Native PWA Mobile Bottom Navigation Bar */}
+            <PwaBottomNav
+              activeTab={activeTab}
+              onSelectTab={handleSelectTab}
+              unreadChatCount={unreadChatCount}
+              onOpenPostModal={() => {
+                setInitialBookForModal('');
+                setInitialStallIdForModal('');
+                setIsPostModalOpen(true);
+              }}
+            />
+          </>
+        ) : (
+          !showSplash && (
+            <div className="flex-1 flex flex-col items-center justify-center p-6 min-h-screen relative overflow-hidden select-none">
+              <img
+                src={`${import.meta.env.BASE_URL}splash/splash-bg.jpg`}
+                alt="BMICH Atmosphere"
+                className="absolute inset-0 w-full h-full object-cover object-center filter blur-xs brightness-75 scale-105"
+              />
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-xs" />
             </div>
-          )}
-
-          {/* TAB 4: Sampath Cardholder Privileges */}
-          {activeTab === 'perks' && (
-            <div className="p-3.5 sm:p-4 space-y-3.5 bg-zinc-50 flex-1">
-              <div className="bg-gradient-to-r from-[#F37021] via-[#EA580C] to-[#C2410C] text-white p-4 rounded-2xl shadow-sm space-y-2">
-                <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-orange-200">
-                  <CreditCard className="w-4 h-4" />
-                  <span>Official Fair Sponsor</span>
-                </div>
-                <h3 className="text-base font-black text-white leading-tight">
-                  Sampath Bank Cardholder Privileges
-                </h3>
-                <p className="text-xs text-orange-100 font-medium">
-                  Enjoy instant discounts and on-site banking services at the Colombo International Book Fair 2026.
-                </p>
-              </div>
-
-              {/* Promotion Flyers Carousel & Instant Savings Notice */}
-              <PromotionsCarousel />
-
-              <div className="bg-white p-3.5 rounded-2xl border border-zinc-200 shadow-xs space-y-2.5">
-                <h4 className="text-xs font-black text-zinc-900 uppercase tracking-wider">
-                  Fairground Services:
-                </h4>
-
-                <div className="flex items-start gap-2 text-xs text-zinc-700 p-2 bg-zinc-50 rounded-xl">
-                  <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                  <span>
-                    <strong>Mobile ATMs & Cash Booths:</strong> Located at Sirimavo Bandaranaike Hall & Main Entrance for fast cash withdrawals.
-                  </span>
-                </div>
-
-                <div className="flex items-start gap-2 text-xs text-zinc-700 p-2 bg-zinc-50 rounded-xl">
-                  <Check className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                  <span>
-                    <strong>Instant Card Activation:</strong> Visit the Sampath Pavilion at Hall A foyer for on-the-spot card assistance.
-                  </span>
-                </div>
-
-                <div className="flex items-start gap-2 text-xs text-zinc-700 p-2 bg-zinc-50 rounded-xl">
-                  <Phone className="w-4 h-4 text-[#F37021] flex-shrink-0 mt-0.5" />
-                  <span>
-                    <strong>24/7 Fair Hotline:</strong> Call 011 2 300 604 for cardholder assistance.
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-        </main>
-
-        {/* 4. Native PWA Mobile Bottom Navigation Bar */}
-        <PwaBottomNav
-          activeTab={activeTab}
-          onSelectTab={handleSelectTab}
-          unreadChatCount={unreadChatCount}
-          onOpenPostModal={() => {
-            setInitialBookForModal('');
-            setInitialStallIdForModal('');
-            setIsPostModalOpen(true);
-          }}
-        />
-      </>
-    ) : (
-      !showSplash && (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 min-h-screen relative overflow-hidden select-none">
-          <img
-            src={`${import.meta.env.BASE_URL}splash/splash-bg.jpg`}
-            alt="BMICH Atmosphere"
-            className="absolute inset-0 w-full h-full object-cover object-center filter blur-xs brightness-75 scale-105"
-          />
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-xs" />
-        </div>
-      )
-    )}
+          )
+        )}
 
         {/* Modals */}
         <PostBookSpotModal
