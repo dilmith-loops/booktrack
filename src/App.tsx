@@ -201,38 +201,44 @@ export default function App() {
   const checkAllSettings = async () => {
     setIsCheckingMaintenance(true);
     try {
-      const res = await apiFetch('/api/settings');
-      if (res.ok) {
-        const data = await res.json();
-        // 1. Maintenance status
-        if (data.maintenance) {
-          const enabled = Boolean(data.maintenance.enabled);
-          setIsMaintenanceMode(enabled);
-          if (data.maintenance.message) {
-            setMaintenanceMessage(data.maintenance.message);
-          }
-          try {
-            localStorage.setItem(
-              'sampath_maintenance_mode',
-              JSON.stringify({ enabled, message: data.maintenance.message })
-            );
-          } catch {}
+      const [mRes, modRes, nRes] = await Promise.all([
+        apiFetch('/api/settings/maintenance'),
+        apiFetch('/api/settings/moderation'),
+        apiFetch('/api/settings/notice-banner')
+      ]);
+
+      if (mRes.ok) {
+        const data = await mRes.json();
+        const enabled = Boolean(data.enabled);
+        setIsMaintenanceMode(enabled);
+        if (data.message) {
+          setMaintenanceMessage(data.message);
         }
-        // 2. Moderation settings
-        if (data.moderation) {
-          const settings: ModerationSettings = {
-            profanityFilter: data.moderation.profanityFilter !== false,
-            aiSpotVerification: data.moderation.aiSpotVerification !== false,
-            imageGuardian: data.moderation.imageGuardian !== false,
-            updatedAt: data.moderation.updatedAt
-          };
-          setModerationSettings(settings);
-          try {
-            localStorage.setItem('sampath_moderation_settings', JSON.stringify(settings));
-          } catch {}
-        }
-        // 3. Notice banner
-        if (data.notice) {
+        try {
+          localStorage.setItem(
+            'sampath_maintenance_mode',
+            JSON.stringify({ enabled, message: data.message })
+          );
+        } catch {}
+      }
+
+      if (modRes.ok) {
+        const data = await modRes.json();
+        const settings: ModerationSettings = {
+          profanityFilter: data.profanityFilter !== false,
+          aiSpotVerification: data.aiSpotVerification !== false,
+          imageGuardian: data.imageGuardian !== false,
+          updatedAt: data.updatedAt
+        };
+        setModerationSettings(settings);
+        try {
+          localStorage.setItem('sampath_moderation_settings', JSON.stringify(settings));
+        } catch {}
+      }
+
+      if (nRes.ok) {
+        const data = await nRes.json();
+        if (data.success && data.notice) {
           setNoticeBanner((prev) => {
             if (prev.message !== data.notice.message || prev.updatedAt !== data.notice.updatedAt) {
               setIsNoticeDismissed(false);

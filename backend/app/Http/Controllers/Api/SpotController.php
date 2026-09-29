@@ -53,25 +53,6 @@ class SpotController extends Controller
             ->orderBy('timestamp', 'desc')
             ->get();
 
-        // Self-healing migration: if any spot contains bulky base64 data, convert to static files on disk
-        // and update DB to permanently slim down future API responses.
-        $spots->each(function (Spot $spot) {
-            $imgs = $spot->images;
-            if (is_array($imgs) && !empty($imgs)) {
-                $hasBase64 = false;
-                foreach ($imgs as $img) {
-                    if (is_string($img) && str_starts_with($img, 'data:image/')) {
-                        $hasBase64 = true;
-                        break;
-                    }
-                }
-                if ($hasBase64) {
-                    $spot->images = $this->persistImages($imgs, $spot->id);
-                    $spot->save();
-                }
-            }
-        });
-
         return response()->json([
             'spots' => $spots
         ]);
@@ -162,8 +143,6 @@ class SpotController extends Controller
                     : '@booklover';
             }
 
-            $persistedPhotos = $this->persistImages($photoList, $reqId);
-
             $newRequest = Spot::create([
                 'id' => $reqId,
                 'post_type' => 'request',
@@ -172,7 +151,7 @@ class SpotController extends Controller
                 'stall_name' => 'BMICH Fairgrounds',
                 'hall' => 'Seeking in All Halls',
                 'stall_number' => 'Looking for Stall',
-                'images' => $persistedPhotos,
+                'images' => $photoList,
                 'finder_name' => $finderName !== '' ? $finderName : 'Book Fair Visitor',
                 'finder_handle' => $handle,
                 'timestamp' => $nowTimestamp,
@@ -224,8 +203,6 @@ class SpotController extends Controller
                 : '@bookspotter';
         }
 
-        $persistedPhotos = $this->persistImages($photoList, $spotId);
-
         $newSpot = Spot::create([
             'id' => $spotId,
             'post_type' => 'spot',
@@ -234,7 +211,7 @@ class SpotController extends Controller
             'stall_name' => $stallName,
             'hall' => $hall ?: ($matchedStall?->hall ?? 'BMICH Main Fairgrounds'),
             'stall_number' => $stallNumber ?: ($matchedStall?->stall_number ?? 'Fairground Stall'),
-            'images' => $persistedPhotos,
+            'images' => $photoList,
             'finder_name' => $finderName !== '' ? $finderName : 'Anonymous Fair Visitor',
             'finder_handle' => $handle,
             'timestamp' => $nowTimestamp,
@@ -629,91 +606,6 @@ class SpotController extends Controller
         return response()->json([
             'success' => true,
             'aiVerified' => $spot->ai_verified
-        ]);
-    }
-
-    /**
-     * Converts any base64 image strings to public static files on disk
-     * to eliminate multi-megabyte payloads in database queries and JSON responses.
-     */
-    protected function persistImages(array $images, string $spotId): array
-    {
-        $processed = [];
-        $uploadDir = public_path('uploads/spots');
-
-        if (!file_exists($uploadDir)) {
-            @mkdir($uploadDir, 0755, true);
-        }
-
-        foreach ($images as $index => $img) {
-            if (!is_string($img) || empty($img)) {
-                continue;
-            }
-
-            // If already a static URL or path, keep as is
-            if (!str_starts_with($img, 'data:image/')) {
-                $processed[] = $img;
-                continue;
-            }
-
-            // Extract base64 mime and payload
-            if (preg_match('/^data:image\/(\w+);base64,(.+)$/s', $img, $matches)) {
-                $extension = strtolower($matches[1]);
-                if ($extension === 'jpeg') $extension = 'jpg';
-                if (!in_array($extension, ['jpg', 'png', 'webp', 'gif'])) {
-                    $extension = 'jpg';
-                }
-
-                $binary = base64_decode($matches[2]);
-                if ($binary !== false) {
-                    $filename = Str::slug($spotId) . '-' . $index . '-' . Str::random(4) . '.' . $extension;
-                    $filePath = $uploadDir . DIRECTORY_SEPARATOR . $filename;
-                    if (@file_put_contents($filePath, $binary) !== false) {
-                        $processed[] = '/uploads/spots/' . $filename;
-                        continue;
-                    }
-                }
-            }
-
-            // Fallback: if decode/write fails, preserve original
-            $processed[] = $img;
-        }
-
-        return $processed;
-    }
-
-    /**
-     * Admin/Utility endpoint to batch convert all remaining database base64 images to static files.
-     */
-    public function migrateLegacyImages(): JsonResponse
-    {
-        $spots = Spot::all();
-        $migratedCount = 0;
-
-        foreach ($spots as $spot) {
-            $imgs = $spot->images;
-            if (!is_array($imgs) || empty($imgs)) continue;
-
-            $hasBase64 = false;
-            foreach ($imgs as $img) {
-                if (is_string($img) && str_starts_with($img, 'data:image/')) {
-                    $hasBase64 = true;
-                    break;
-                }
-            }
-
-            if ($hasBase64) {
-                $newImgs = $this->persistImages($imgs, $spot->id);
-                $spot->images = $newImgs;
-                $spot->save();
-                $migratedCount++;
-            }
-        }
-
-        return response()->json([
-            'success' => true,
-            'migrated_spots' => $migratedCount,
-            'message' => "Successfully converted base64 images to static files for {$migratedCount} spots."
         ]);
     }
 }
