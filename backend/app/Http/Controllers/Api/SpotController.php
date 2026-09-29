@@ -17,7 +17,7 @@ class SpotController extends Controller
         protected ModerationService $moderation
     ) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): \Illuminate\Http\Response|JsonResponse
     {
         $query = Spot::query();
 
@@ -37,11 +37,30 @@ class SpotController extends Controller
         }
 
         // Incremental polling support: return only spots created or modified after a given timestamp
-        if ($since = $request->query('since')) {
+        $since = $request->query('since');
+        if ($since) {
             $sinceMs = (int) $since;
             if ($sinceMs > 0) {
                 $query->where('timestamp', '>', $sinceMs);
             }
+        }
+
+        // Quick aggregate check to avoid heavy queries and payload serialization
+        $summary = (clone $query)->selectRaw('COUNT(*) as total_count, MAX(timestamp) as max_ts, MAX(updated_at) as max_up')->first();
+        $totalCount = (int) ($summary->total_count ?? 0);
+
+        if ($since && $totalCount === 0) {
+            return response()->json(['spots' => []])
+                ->header('Cache-Control', 'private, no-cache');
+        }
+
+        $maxTs = (int) ($summary->max_ts ?? 0);
+        $maxUp = (string) ($summary->max_up ?? '');
+        $etag = '"' . md5("spots_{$totalCount}_{$maxTs}_{$maxUp}") . '"';
+
+        $clientEtag = $request->header('If-None-Match');
+        if ($clientEtag && trim($clientEtag, '"') === trim($etag, '"')) {
+            return response(null, 304)->header('ETag', $etag);
         }
 
         // Optional result count limit
@@ -55,7 +74,8 @@ class SpotController extends Controller
 
         return response()->json([
             'spots' => $spots
-        ]);
+        ])->header('ETag', $etag)
+          ->header('Cache-Control', 'private, must-revalidate, max-age=5');
     }
 
     public function store(Request $request): JsonResponse

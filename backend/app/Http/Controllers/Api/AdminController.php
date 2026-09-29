@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class AdminController extends Controller
@@ -142,27 +143,37 @@ class AdminController extends Controller
     }
 
     /**
-     * Get current maintenance mode status.
+     * Get current maintenance mode status (Cached with ETag).
      */
-    public function getMaintenanceStatus(): JsonResponse
+    public function getMaintenanceStatus(Request $request): \Illuminate\Http\Response|JsonResponse
     {
-        $filePath = storage_path('app/maintenance.json');
-        if (file_exists($filePath)) {
-            $data = json_decode(file_get_contents($filePath), true);
-            if (is_array($data)) {
-                return response()->json([
-                    'enabled' => !empty($data['enabled']),
-                    'message' => $data['message'] ?? 'Platform is currently undergoing scheduled maintenance. Please check back shortly.',
-                    'updatedAt' => $data['updatedAt'] ?? null,
-                ]);
+        $payload = Cache::remember('settings_maintenance_v1', 300, function () {
+            $filePath = storage_path('app/maintenance.json');
+            if (file_exists($filePath)) {
+                $data = json_decode(file_get_contents($filePath), true);
+                if (is_array($data)) {
+                    return [
+                        'enabled' => !empty($data['enabled']),
+                        'message' => $data['message'] ?? 'Platform is currently undergoing scheduled maintenance. Please check back shortly.',
+                        'updatedAt' => $data['updatedAt'] ?? null,
+                    ];
+                }
             }
+            return [
+                'enabled' => false,
+                'message' => 'Platform is operating normally.',
+                'updatedAt' => null,
+            ];
+        });
+
+        $etag = '"' . md5(json_encode($payload)) . '"';
+        if ($request->header('If-None-Match') === $etag) {
+            return response(null, 304)->header('ETag', $etag);
         }
 
-        return response()->json([
-            'enabled' => false,
-            'message' => 'Platform is operating normally.',
-            'updatedAt' => null,
-        ]);
+        return response()->json($payload)
+            ->header('ETag', $etag)
+            ->header('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
     }
 
     /**
@@ -191,6 +202,7 @@ class AdminController extends Controller
             @mkdir($dir, 0755, true);
         }
         @file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT));
+        Cache::forget('settings_maintenance_v1');
 
         return response()->json([
             'success' => true,
@@ -201,29 +213,39 @@ class AdminController extends Controller
     }
 
     /**
-     * Get current AI safety & moderation settings.
+     * Get current AI safety & moderation settings (Cached with ETag).
      */
-    public function getModerationSettings(): JsonResponse
+    public function getModerationSettings(Request $request): \Illuminate\Http\Response|JsonResponse
     {
-        $filePath = storage_path('app/moderation_settings.json');
-        if (file_exists($filePath)) {
-            $data = json_decode(file_get_contents($filePath), true);
-            if (is_array($data)) {
-                return response()->json([
-                    'profanityFilter' => isset($data['profanityFilter']) ? (bool) $data['profanityFilter'] : true,
-                    'aiSpotVerification' => isset($data['aiSpotVerification']) ? (bool) $data['aiSpotVerification'] : true,
-                    'imageGuardian' => isset($data['imageGuardian']) ? (bool) $data['imageGuardian'] : true,
-                    'updatedAt' => $data['updatedAt'] ?? null,
-                ]);
+        $payload = Cache::remember('settings_moderation_v1', 300, function () {
+            $filePath = storage_path('app/moderation_settings.json');
+            if (file_exists($filePath)) {
+                $data = json_decode(file_get_contents($filePath), true);
+                if (is_array($data)) {
+                    return [
+                        'profanityFilter' => isset($data['profanityFilter']) ? (bool) $data['profanityFilter'] : true,
+                        'aiSpotVerification' => isset($data['aiSpotVerification']) ? (bool) $data['aiSpotVerification'] : true,
+                        'imageGuardian' => isset($data['imageGuardian']) ? (bool) $data['imageGuardian'] : true,
+                        'updatedAt' => $data['updatedAt'] ?? null,
+                    ];
+                }
             }
+            return [
+                'profanityFilter' => true,
+                'aiSpotVerification' => true,
+                'imageGuardian' => true,
+                'updatedAt' => null,
+            ];
+        });
+
+        $etag = '"' . md5(json_encode($payload)) . '"';
+        if ($request->header('If-None-Match') === $etag) {
+            return response(null, 304)->header('ETag', $etag);
         }
 
-        return response()->json([
-            'profanityFilter' => true,
-            'aiSpotVerification' => true,
-            'imageGuardian' => true,
-            'updatedAt' => null,
-        ]);
+        return response()->json($payload)
+            ->header('ETag', $etag)
+            ->header('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
     }
 
     /**
@@ -265,6 +287,7 @@ class AdminController extends Controller
             @mkdir($dir, 0755, true);
         }
         @file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT));
+        Cache::forget('settings_moderation_v1');
 
         return response()->json([
             'success' => true,
@@ -274,39 +297,49 @@ class AdminController extends Controller
     }
 
     /**
-     * Get Book Fair Notice Banner configuration.
+     * Get Book Fair Notice Banner configuration (Cached with ETag).
      */
-    public function getNoticeBanner(): JsonResponse
+    public function getNoticeBanner(Request $request): \Illuminate\Http\Response|JsonResponse
     {
-        $filePath = storage_path('app/book_fair_notice.json');
-        if (file_exists($filePath)) {
-            $data = json_decode(file_get_contents($filePath), true);
-            if (is_array($data)) {
-                if (!isset($data['showBadge'])) {
-                    $data['showBadge'] = true;
+        $payload = Cache::remember('settings_notice_v1', 300, function () {
+            $filePath = storage_path('app/book_fair_notice.json');
+            if (file_exists($filePath)) {
+                $data = json_decode(file_get_contents($filePath), true);
+                if (is_array($data)) {
+                    if (!isset($data['showBadge'])) {
+                        $data['showBadge'] = true;
+                    }
+                    return [
+                        'success' => true,
+                        'notice' => $data,
+                    ];
                 }
-                return response()->json([
-                    'success' => true,
-                    'notice' => $data,
-                ]);
             }
+            return [
+                'success' => true,
+                'notice' => [
+                    'enabled' => true,
+                    'message' => 'BMICH Fair Notice: Special discount stalls now open in Hall E! Check them out for exclusive deals.',
+                    'badgeText' => 'FAIR NOTICE',
+                    'showBadge' => true,
+                    'theme' => 'orange',
+                    'isTicker' => true,
+                    'linkText' => 'View Stalls',
+                    'linkUrl' => 'stalls',
+                    'isClosable' => true,
+                    'updatedAt' => date('c'),
+                ],
+            ];
+        });
+
+        $etag = '"' . md5(json_encode($payload)) . '"';
+        if ($request->header('If-None-Match') === $etag) {
+            return response(null, 304)->header('ETag', $etag);
         }
 
-        return response()->json([
-            'success' => true,
-            'notice' => [
-                'enabled' => true,
-                'message' => 'BMICH Fair Notice: Special discount stalls now open in Hall E! Check them out for exclusive deals.',
-                'badgeText' => 'FAIR NOTICE',
-                'showBadge' => true,
-                'theme' => 'orange',
-                'isTicker' => true,
-                'linkText' => 'View Stalls',
-                'linkUrl' => 'stalls',
-                'isClosable' => true,
-                'updatedAt' => date('c'),
-            ],
-        ]);
+        return response()->json($payload)
+            ->header('ETag', $etag)
+            ->header('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
     }
 
     /**
@@ -354,6 +387,7 @@ class AdminController extends Controller
             @mkdir($dir, 0755, true);
         }
         @file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT));
+        Cache::forget('settings_notice_v1');
 
         return response()->json([
             'success' => true,

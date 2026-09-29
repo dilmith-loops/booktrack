@@ -75,4 +75,25 @@ class User extends Authenticatable
             'isDisabled' => (bool) ($this->is_disabled ?? false),
         ];
     }
+
+    protected static function booted(): void
+    {
+        static::saved(function (User $user) {
+            $user->forgetStatusCache();
+        });
+        static::deleted(function (User $user) {
+            $user->forgetStatusCache();
+        });
+    }
+
+    public function forgetStatusCache(): void
+    {
+        \Illuminate\Support\Facades\Cache::forget("user_status_id_{$this->id}");
+        if (!empty($this->handle)) {
+            \Illuminate\Support\Facades\Cache::forget("user_status_handle_" . md5($this->handle));
+        }
+        if (!empty($this->email)) {
+            \Illuminate\Support\Facades\Cache::forget("user_status_email_" . md5(strtolower($this->email)));
+        }
+    }
 }

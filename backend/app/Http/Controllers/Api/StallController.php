@@ -6,22 +6,32 @@ use App\Http\Controllers\Controller;
 use App\Models\Stall;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class StallController extends Controller
 {
     /**
-     * List all participating fair stalls.
+     * List all participating fair stalls (Cached with ETag 304 validation).
      */
-    public function index(): JsonResponse
+    public function index(Request $request): \Illuminate\Http\Response|JsonResponse
     {
-        $stalls = Stall::all()
-            ->sortBy('stall_number', SORT_NATURAL | SORT_FLAG_CASE)
-            ->values();
+        $stalls = Cache::remember('stalls_directory_v1', 3600, function () {
+            return Stall::all()
+                ->sortBy('stall_number', SORT_NATURAL | SORT_FLAG_CASE)
+                ->values();
+        });
+
+        $etag = '"' . md5(json_encode($stalls)) . '"';
+
+        if ($request->header('If-None-Match') === $etag) {
+            return response(null, 304)->header('ETag', $etag);
+        }
 
         return response()->json([
             'stalls' => $stalls
-        ]);
+        ])->header('ETag', $etag)
+          ->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     }
 
     /**
@@ -82,6 +92,8 @@ class StallController extends Controller
             'is_hidden' => (bool) $request->input('isHidden', $request->input('is_hidden', false)),
         ]);
 
+        Cache::forget('stalls_directory_v1');
+
         return response()->json([
             'success' => true,
             'stall' => $stall,
@@ -124,6 +136,7 @@ class StallController extends Controller
         }
 
         $stall->save();
+        Cache::forget('stalls_directory_v1');
 
         return response()->json([
             'success' => true,
@@ -154,6 +167,7 @@ class StallController extends Controller
         }
 
         $stall->save();
+        Cache::forget('stalls_directory_v1');
 
         return response()->json([
             'success' => true,
@@ -215,6 +229,8 @@ class StallController extends Controller
             }
         });
 
+        Cache::forget('stalls_directory_v1');
+
         $allStalls = Stall::all()
             ->sortBy('stall_number', SORT_NATURAL | SORT_FLAG_CASE)
             ->values();
@@ -243,6 +259,7 @@ class StallController extends Controller
         }
 
         $stall->delete();
+        Cache::forget('stalls_directory_v1');
 
         return response()->json([
             'success' => true,

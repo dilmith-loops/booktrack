@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -471,7 +472,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Check current spotter account status (Active / Disabled).
+     * Check current spotter account status (Active / Disabled). Cached for 60s per user to protect database under high concurrency.
      */
     public function checkStatus(Request $request): JsonResponse
     {
@@ -479,19 +480,43 @@ class AuthController extends Controller
         $rawHandle = trim((string) $request->input('handle', ''));
         $email = strtolower(trim((string) $request->input('email', '')));
 
-        $user = null;
-        if (!empty($id)) {
-            $user = User::find($id);
-        }
-        if (!$user && !empty($rawHandle)) {
-            $formattedHandle = str_starts_with($rawHandle, '@') ? $rawHandle : '@' . $rawHandle;
-            $user = User::where('handle', $formattedHandle)->first();
-        }
-        if (!$user && !empty($email)) {
-            $user = User::where('email', $email)->first();
+        if (empty($id) && empty($rawHandle) && empty($email)) {
+            return response()->json([
+                'found' => false,
+                'isDisabled' => true,
+                'error' => 'No user identifier provided.'
+            ], 400);
         }
 
-        if (!$user) {
+        $cacheKey = !empty($id)
+            ? "user_status_id_{$id}"
+            : (!empty($rawHandle) ? "user_status_handle_" . md5($rawHandle) : "user_status_email_" . md5($email));
+
+        $statusData = Cache::remember($cacheKey, 60, function () use ($id, $rawHandle, $email) {
+            $user = null;
+            if (!empty($id)) {
+                $user = User::find($id);
+            }
+            if (!$user && !empty($rawHandle)) {
+                $formattedHandle = str_starts_with($rawHandle, '@') ? $rawHandle : '@' . $rawHandle;
+                $user = User::where('handle', $formattedHandle)->first();
+            }
+            if (!$user && !empty($email)) {
+                $user = User::where('email', $email)->first();
+            }
+
+            if (!$user) {
+                return ['found' => false];
+            }
+
+            return [
+                'found' => true,
+                'isDisabled' => (bool) $user->is_disabled,
+                'profile' => $user->toProfileArray(),
+            ];
+        });
+
+        if (!$statusData || !$statusData['found']) {
             return response()->json([
                 'found' => false,
                 'isDisabled' => true,
@@ -499,11 +524,11 @@ class AuthController extends Controller
             ], 404);
         }
 
-        if ($user->is_disabled) {
+        if ($statusData['isDisabled']) {
             return response()->json([
                 'found' => true,
                 'isDisabled' => true,
-                'user' => $user->toProfileArray(),
+                'user' => $statusData['profile'],
                 'error' => 'Your spotter account has been disabled by an administrator.'
             ], 403);
         }
@@ -511,7 +536,7 @@ class AuthController extends Controller
         return response()->json([
             'found' => true,
             'isDisabled' => false,
-            'user' => $user->toProfileArray()
+            'user' => $statusData['profile']
         ]);
     }
 

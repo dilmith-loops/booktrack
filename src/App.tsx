@@ -438,13 +438,24 @@ export default function App() {
     };
 
     verifyAccountStatus();
-    const interval = setInterval(verifyAccountStatus, 10000);
-    window.addEventListener('focus', verifyAccountStatus);
+    const interval = setInterval(() => {
+      if (document.hidden) return;
+      verifyAccountStatus();
+    }, 60000); // 60 seconds gentle check
+
+    let lastFocus = Date.now();
+    const handleFocus = () => {
+      if (document.hidden) return;
+      if (Date.now() - lastFocus < 45000) return;
+      lastFocus = Date.now();
+      verifyAccountStatus();
+    };
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
-      window.removeEventListener('focus', verifyAccountStatus);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [userProfile?.id, userProfile?.handle, userProfile?.email, handleLogoutDueToDisabled]);
 

@@ -22,57 +22,83 @@ export interface ApiFetchOptions extends RequestInit {
   timeoutMs?: number;
 }
 
+// In-flight GET request deduplication map to prevent redundant concurrent network calls
+const inFlightGetRequests = new Map<string, Promise<Response>>();
+
 export const apiFetch = async (url: string, options?: ApiFetchOptions): Promise<Response> => {
-  const timeoutMs = options?.timeoutMs ?? 15000;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const method = (options?.method || 'GET').toUpperCase();
+  const isGet = method === 'GET';
+  const resolvedUrl = getApiUrl(url);
 
-  // If caller provided their own signal, listen to it
-  if (options?.signal) {
-    options.signal.addEventListener('abort', () => controller.abort());
+  // If identical GET request is currently in-flight, return a cloned response from existing promise
+  if (isGet && !options?.body && inFlightGetRequests.has(resolvedUrl)) {
+    const activePromise = inFlightGetRequests.get(resolvedUrl)!;
+    return activePromise.then((res) => res.clone());
   }
 
-  try {
-    const res = await fetch(getApiUrl(url), {
-      ...options,
-      signal: controller.signal
-    });
+  const executeFetch = async (): Promise<Response> => {
+    const timeoutMs = options?.timeoutMs ?? 15000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    // If server returns 403 Forbidden due to account suspension / disabled status
-    if (res.status === 403 && typeof window !== 'undefined') {
-      try {
-        const clone = res.clone();
-        const data = await clone.json();
-        if (
-          data &&
-          (data.isDisabled === true ||
-            (typeof data.error === 'string' &&
-              (data.error.toLowerCase().includes('disabled') ||
-                data.error.toLowerCase().includes('suspended'))))
-        ) {
-          window.dispatchEvent(
-            new CustomEvent('account-disabled', {
-              detail: {
-                message:
-                  data.error ||
-                  'Your spotter account has been disabled by an administrator. You have been logged out automatically.'
-              }
-            })
-          );
+    // If caller provided their own signal, listen to it
+    if (options?.signal) {
+      options.signal.addEventListener('abort', () => controller.abort());
+    }
+
+    try {
+      const res = await fetch(resolvedUrl, {
+        ...options,
+        signal: controller.signal
+      });
+
+      // If server returns 403 Forbidden due to account suspension / disabled status
+      if (res.status === 403 && typeof window !== 'undefined') {
+        try {
+          const clone = res.clone();
+          const data = await clone.json();
+          if (
+            data &&
+            (data.isDisabled === true ||
+              (typeof data.error === 'string' &&
+                (data.error.toLowerCase().includes('disabled') ||
+                  data.error.toLowerCase().includes('suspended'))))
+          ) {
+            window.dispatchEvent(
+              new CustomEvent('account-disabled', {
+                detail: {
+                  message:
+                    data.error ||
+                    'Your spotter account has been disabled by an administrator. You have been logged out automatically.'
+                }
+              })
+            );
+          }
+        } catch {
+          // Ignore JSON parse errors on unexpected body
         }
-      } catch {
-        // Ignore JSON parse errors on unexpected body
       }
-    }
 
-    return res;
-  } catch (err: any) {
-    if (err.name === 'AbortError') {
-      throw new Error('Connection timed out. The server took too long to respond. Please check your connection and try again.');
+      return res;
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        throw new Error('Connection timed out. The server took too long to respond. Please check your connection and try again.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
+  };
+
+  if (isGet && !options?.body) {
+    const promise = executeFetch().finally(() => {
+      inFlightGetRequests.delete(resolvedUrl);
+    });
+    inFlightGetRequests.set(resolvedUrl, promise);
+    return promise.then((res) => res.clone());
   }
+
+  return executeFetch();
 };
+
 
