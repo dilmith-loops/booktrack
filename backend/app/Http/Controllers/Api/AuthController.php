@@ -762,6 +762,9 @@ class AuthController extends Controller
 
         $primaryMailer = $preferredMailer ?: config('mail.default', 'smtp');
 
+        // Set tight socket connection timeout (3s) so SMTP cannot freeze user registration / login
+        config(['mail.mailers.smtp.timeout' => 3]);
+
         // 1. Attempt dispatch using primary mailer (e.g. SMTP)
         try {
             Mail::mailer($primaryMailer)->html($htmlBody, function ($message) use ($recipientEmail, $recipientName, $subject, $plainTextBody, $fromAddress, $fromName) {

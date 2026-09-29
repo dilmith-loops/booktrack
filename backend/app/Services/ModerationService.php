@@ -401,7 +401,7 @@ Respond ONLY with valid JSON in this exact structure:
 }
 PROMPT;
 
-            $response = Http::timeout(5)
+            $response = Http::timeout(2.5)
                 ->withoutVerifying()
                 ->withHeaders(['Content-Type' => 'application/json'])
                 ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$this->apiKey}", [
@@ -554,7 +554,15 @@ PROMPT;
             }
         }
 
-        // 1. Strict Gemini AI Vision Inspection
+        // 1. Instant Local Computer Vision Skin-Tone Inspection (runs in 2-5ms via GD)
+        if ($rawBinary) {
+            $localAnalysis = $this->analyzeImageLocally($rawBinary);
+            if (!$localAnalysis['isClean']) {
+                return $localAnalysis;
+            }
+        }
+
+        // 2. Fast Gemini AI Vision Inspection (with tight 3.5s timeout)
         if (!empty($this->apiKey) && !empty($base64Data)) {
             try {
                 $prompt = 'You are the Strict Image Safety Guardian for Sampath Book Finder at BMICH Colombo Book Fair. ' .
@@ -562,7 +570,7 @@ PROMPT;
                     'bare midriff, vulgarity, suggestive poses, or sexual content. Only genuine book covers, pages, and book fair stalls are permitted. ' .
                     'Respond ONLY with valid JSON: {"isClean": boolean, "reason": "reason if rejected"}';
 
-                $response = Http::timeout(10)
+                $response = Http::timeout(3.5)
                     ->withoutVerifying()
                     ->withHeaders(['Content-Type' => 'application/json'])
                     ->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$this->apiKey}", [
@@ -628,14 +636,6 @@ PROMPT;
                 }
             } catch (\Throwable $e) {
                 Log::warning('Gemini image moderation error: ' . $e->getMessage());
-            }
-        }
-
-        // 2. Local Computer Vision Skin-Tone Fallback (runs if Gemini unavailable or network offline)
-        if ($rawBinary) {
-            $localAnalysis = $this->analyzeImageLocally($rawBinary);
-            if (!$localAnalysis['isClean']) {
-                return $localAnalysis;
             }
         }
 

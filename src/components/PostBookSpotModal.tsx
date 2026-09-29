@@ -178,22 +178,26 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
             continue;
           }
 
-          // 2. Server-side AI Vision & Local GD validation
+          // 2. Server-side AI Vision & Local GD validation (fast with 4s timeout)
           try {
             const modRes = await apiFetch('/api/moderate-image', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ image: dataUrl })
+              body: JSON.stringify({ image: dataUrl }),
+              timeoutMs: 4000
             });
-            const modData = await modRes.json();
-            if (!modData.isClean) {
-              setAiBlockedReason(
-                `Sampath AI Image Shield: Photo blocked. ${modData.reason || 'Image violates safe community guidelines (excessive skin exposure, swimwear, or policy-violating content detected).'}`
-              );
-              continue;
+            if (modRes.ok) {
+              const modData = await modRes.json();
+              if (!modData.isClean) {
+                setAiBlockedReason(
+                  `Sampath AI Image Shield: Photo blocked. ${modData.reason || 'Image violates safe community guidelines (excessive skin exposure, swimwear, or policy-violating content detected).'}`
+                );
+                continue;
+              }
             }
           } catch (err) {
-            console.warn('Image moderation API warning:', err);
+            // Non-fatal warning: client-side canvas shield already passed
+            console.warn('Image moderation API warning (fallback to client shield):', err);
           }
         }
 
@@ -203,8 +207,8 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
       if (accepted.length > 0) {
         setImages(prev => [...prev, ...accepted].slice(0, 3));
       }
-    } catch (err) {
-      setErrorMsg('Could not process selected image. Please try another.');
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Could not process selected image. Please try another.');
     } finally {
       setIsVettingImage(false);
       if (fileInputRef.current) {
@@ -351,7 +355,7 @@ export const PostBookSpotModal: React.FC<PostBookSpotModalProps> = ({
       onSpotAdded(data.spot);
       handleClose();
     } catch (err: any) {
-      setErrorMsg('Network error. Please try again.');
+      setErrorMsg(err?.message || 'Network error. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
