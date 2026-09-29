@@ -63,9 +63,15 @@ class SpotController extends Controller
             return response(null, 304)->header('ETag', $etag);
         }
 
-        // Optional result count limit
-        if ($limit = $request->query('limit')) {
-            $query->limit(min(150, max(1, (int) $limit)));
+        // Result count limit: default to 60 to prevent memory exhaustion and bandwidth bloat
+        $limit = $request->query('limit');
+        if ($limit !== null) {
+            $limitVal = (int) $limit;
+            if ($limitVal > 0) {
+                $query->limit(min(150, $limitVal));
+            }
+        } else {
+            $query->limit(60);
         }
 
         $spots = $query->orderBy('is_pinned', 'desc')
@@ -171,7 +177,7 @@ class SpotController extends Controller
                 'stall_name' => 'BMICH Fairgrounds',
                 'hall' => 'Seeking in All Halls',
                 'stall_number' => 'Looking for Stall',
-                'images' => $photoList,
+                'images' => self::persistImages($photoList, $reqId),
                 'finder_name' => $finderName !== '' ? $finderName : 'Book Fair Visitor',
                 'finder_handle' => $handle,
                 'timestamp' => $nowTimestamp,
@@ -231,7 +237,7 @@ class SpotController extends Controller
             'stall_name' => $stallName,
             'hall' => $hall ?: ($matchedStall?->hall ?? 'BMICH Main Fairgrounds'),
             'stall_number' => $stallNumber ?: ($matchedStall?->stall_number ?? 'Fairground Stall'),
-            'images' => $photoList,
+            'images' => self::persistImages($photoList, $spotId),
             'finder_name' => $finderName !== '' ? $finderName : 'Anonymous Fair Visitor',
             'finder_handle' => $handle,
             'timestamp' => $nowTimestamp,
@@ -448,7 +454,7 @@ class SpotController extends Controller
             $spot->rating_average = (float) $request->input('ratingAverage');
         }
         if ($request->has('images') && is_array($request->input('images'))) {
-            $spot->images = $request->input('images');
+            $spot->images = self::persistImages($request->input('images'), $spot->id);
         }
 
         $spot->save();
@@ -628,4 +634,64 @@ class SpotController extends Controller
             'aiVerified' => $spot->ai_verified
         ]);
     }
+
+    /**
+     * Converts base64 image data URIs to static files on disk.
+     * Prevents multi-megabyte payloads in database queries and JSON responses.
+     */
+    public static function persistImages(array $images, string $spotId): array
+    {
+        $processed = [];
+        $uploadDir = public_path('uploads/spots');
+
+        if (!is_dir($uploadDir)) {
+            @mkdir($uploadDir, 0755, true);
+        }
+
+        // Also mirror to workspace root public/uploads/spots if dual directory structure exists
+        $rootUploadDir = base_path('../public/uploads/spots');
+        if (is_dir(base_path('../public')) && !is_dir($rootUploadDir)) {
+            @mkdir($rootUploadDir, 0755, true);
+        }
+
+        foreach ($images as $index => $img) {
+            if (!is_string($img) || empty($img)) {
+                continue;
+            }
+
+            // If already a static URL or path, keep as is
+            if (!str_starts_with($img, 'data:image/')) {
+                $processed[] = $img;
+                continue;
+            }
+
+            // Extract base64 mime and payload
+            if (preg_match('/^data:image\/(\w+);base64,(.+)$/s', $img, $matches)) {
+                $extension = strtolower($matches[1]);
+                if ($extension === 'jpeg') $extension = 'jpg';
+                if (!in_array($extension, ['jpg', 'png', 'webp', 'gif'])) {
+                    $extension = 'jpg';
+                }
+
+                $binary = base64_decode($matches[2]);
+                if ($binary !== false) {
+                    $filename = Str::slug($spotId) . '-' . $index . '-' . Str::random(6) . '.' . $extension;
+                    $filePath = $uploadDir . DIRECTORY_SEPARATOR . $filename;
+                    if (@file_put_contents($filePath, $binary) !== false) {
+                        if (is_dir($rootUploadDir)) {
+                            @copy($filePath, $rootUploadDir . DIRECTORY_SEPARATOR . $filename);
+                        }
+                        $processed[] = '/uploads/spots/' . $filename;
+                        continue;
+                    }
+                }
+            }
+
+            // Fallback: if decode/write fails, preserve original
+            $processed[] = $img;
+        }
+
+        return $processed;
+    }
 }
+

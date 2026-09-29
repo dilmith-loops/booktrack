@@ -16,11 +16,22 @@ class StallController extends Controller
      */
     public function index(Request $request): \Illuminate\Http\Response|JsonResponse
     {
-        $stalls = Cache::remember('stalls_directory_v1', 3600, function () {
+        // Cache stalls directory as a clean plain array (prevents PHP object deserialization issues)
+        $stalls = Cache::remember('stalls_directory_v2', 86400, function () {
             return Stall::all()
                 ->sortBy('stall_number', SORT_NATURAL | SORT_FLAG_CASE)
-                ->values();
+                ->values()
+                ->toArray();
         });
+
+        // Defensive guard: if cache ever contains corrupted class or non-array, re-fetch and overwrite
+        if (!is_array($stalls) || isset($stalls['__PHP_Incomplete_Class_Name'])) {
+            $stalls = Stall::all()
+                ->sortBy('stall_number', SORT_NATURAL | SORT_FLAG_CASE)
+                ->values()
+                ->toArray();
+            Cache::put('stalls_directory_v2', $stalls, 86400);
+        }
 
         $etag = '"' . md5(json_encode($stalls)) . '"';
 
@@ -31,7 +42,7 @@ class StallController extends Controller
         return response()->json([
             'stalls' => $stalls
         ])->header('ETag', $etag)
-          ->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+          ->header('Cache-Control', 'public, max-age=300, stale-while-revalidate=86400');
     }
 
     /**
@@ -92,7 +103,7 @@ class StallController extends Controller
             'is_hidden' => (bool) $request->input('isHidden', $request->input('is_hidden', false)),
         ]);
 
-        Cache::forget('stalls_directory_v1');
+        self::clearCache();
 
         return response()->json([
             'success' => true,
@@ -136,7 +147,7 @@ class StallController extends Controller
         }
 
         $stall->save();
-        Cache::forget('stalls_directory_v1');
+        self::clearCache();
 
         return response()->json([
             'success' => true,
@@ -167,7 +178,7 @@ class StallController extends Controller
         }
 
         $stall->save();
-        Cache::forget('stalls_directory_v1');
+        self::clearCache();
 
         return response()->json([
             'success' => true,
@@ -229,7 +240,7 @@ class StallController extends Controller
             }
         });
 
-        Cache::forget('stalls_directory_v1');
+        self::clearCache();
 
         $allStalls = Stall::all()
             ->sortBy('stall_number', SORT_NATURAL | SORT_FLAG_CASE)
@@ -259,11 +270,21 @@ class StallController extends Controller
         }
 
         $stall->delete();
-        Cache::forget('stalls_directory_v1');
+        self::clearCache();
 
         return response()->json([
             'success' => true,
             'message' => 'Fair stall deleted successfully.'
         ]);
     }
+
+    /**
+     * Clear all stall-related caches across versions.
+     */
+    public static function clearCache(): void
+    {
+        Cache::forget('stalls_directory_v1');
+        Cache::forget('stalls_directory_v2');
+    }
 }
+

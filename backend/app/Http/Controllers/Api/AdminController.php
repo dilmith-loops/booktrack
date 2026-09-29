@@ -203,6 +203,7 @@ class AdminController extends Controller
         }
         @file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT));
         Cache::forget('settings_maintenance_v1');
+        Cache::forget('settings_bootstrap_v1');
 
         return response()->json([
             'success' => true,
@@ -288,6 +289,7 @@ class AdminController extends Controller
         }
         @file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT));
         Cache::forget('settings_moderation_v1');
+        Cache::forget('settings_bootstrap_v1');
 
         return response()->json([
             'success' => true,
@@ -388,6 +390,7 @@ class AdminController extends Controller
         }
         @file_put_contents($filePath, json_encode($data, JSON_PRETTY_PRINT));
         Cache::forget('settings_notice_v1');
+        Cache::forget('settings_bootstrap_v1');
 
         return response()->json([
             'success' => true,
@@ -420,6 +423,106 @@ class AdminController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Consolidated system bootstrap: fetches maintenance, moderation, notice banner, and server metadata in a single call.
+     * Replaces 3 independent HTTP polling requests with a single cached ETag response.
+     */
+    public function getBootstrapSettings(Request $request): \Illuminate\Http\Response|JsonResponse
+    {
+        $payload = Cache::remember('settings_bootstrap_v1', 120, function () {
+            // 1. Maintenance status
+            $mFilePath = storage_path('app/maintenance.json');
+            $maintenance = [
+                'enabled' => false,
+                'message' => 'Platform is operating normally.',
+                'updatedAt' => null,
+            ];
+            if (file_exists($mFilePath)) {
+                $mData = json_decode(file_get_contents($mFilePath), true);
+                if (is_array($mData)) {
+                    $maintenance = [
+                        'enabled' => !empty($mData['enabled']),
+                        'message' => $mData['message'] ?? 'Platform is currently undergoing scheduled maintenance. Please check back shortly.',
+                        'updatedAt' => $mData['updatedAt'] ?? null,
+                    ];
+                }
+            }
+
+            // 2. Moderation settings
+            $modFilePath = storage_path('app/moderation_settings.json');
+            $moderation = [
+                'profanityFilter' => true,
+                'aiSpotVerification' => true,
+                'imageGuardian' => true,
+                'updatedAt' => null,
+            ];
+            if (file_exists($modFilePath)) {
+                $modData = json_decode(file_get_contents($modFilePath), true);
+                if (is_array($modData)) {
+                    $moderation = [
+                        'profanityFilter' => isset($modData['profanityFilter']) ? (bool) $modData['profanityFilter'] : true,
+                        'aiSpotVerification' => isset($modData['aiSpotVerification']) ? (bool) $modData['aiSpotVerification'] : true,
+                        'imageGuardian' => isset($modData['imageGuardian']) ? (bool) $modData['imageGuardian'] : true,
+                        'updatedAt' => $modData['updatedAt'] ?? null,
+                    ];
+                }
+            }
+
+            // 3. Notice banner
+            $nFilePath = storage_path('app/book_fair_notice.json');
+            $notice = [
+                'enabled' => true,
+                'message' => 'BMICH Fair Notice: Special discount stalls now open in Hall E! Check them out for exclusive deals.',
+                'badgeText' => 'FAIR NOTICE',
+                'showBadge' => true,
+                'theme' => 'orange',
+                'isTicker' => true,
+                'linkText' => 'View Stalls',
+                'linkUrl' => 'stalls',
+                'isClosable' => true,
+                'updatedAt' => date('c'),
+            ];
+            if (file_exists($nFilePath)) {
+                $nData = json_decode(file_get_contents($nFilePath), true);
+                if (is_array($nData)) {
+                    $notice = [
+                        'enabled' => isset($nData['enabled']) ? (bool) $nData['enabled'] : true,
+                        'message' => $nData['message'] ?? '',
+                        'badgeText' => $nData['badgeText'] ?? 'FAIR NOTICE',
+                        'showBadge' => isset($nData['showBadge']) ? (bool) $nData['showBadge'] : true,
+                        'theme' => $nData['theme'] ?? 'orange',
+                        'isTicker' => isset($nData['isTicker']) ? (bool) $nData['isTicker'] : true,
+                        'linkText' => $nData['linkText'] ?? '',
+                        'linkUrl' => $nData['linkUrl'] ?? '',
+                        'isClosable' => isset($nData['isClosable']) ? (bool) $nData['isClosable'] : true,
+                        'updatedAt' => $nData['updatedAt'] ?? null,
+                        'updatedBy' => $nData['updatedBy'] ?? 'admin',
+                    ];
+                }
+            }
+
+            return [
+                'maintenance' => $maintenance,
+                'moderation' => $moderation,
+                'notice' => [
+                    'success' => true,
+                    'notice' => $notice
+                ],
+                'timestamp' => (int) round(microtime(true) * 1000),
+            ];
+        });
+
+        $etag = '"' . md5(json_encode($payload)) . '"';
+        if ($request->header('If-None-Match') === $etag) {
+            return response(null, 304)->header('ETag', $etag);
+        }
+
+        return response()->json($payload)
+            ->header('ETag', $etag)
+            ->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
+    }
 }
+
 
 

@@ -10,18 +10,22 @@ use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 // Authentication & Recurring User Login Routes (Rate-limited to prevent brute force)
-Route::prefix('auth')->middleware('throttle:60,1')->group(function () {
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/otp-request', [AuthController::class, 'requestOtp'])->middleware('throttle:15,1');
-    Route::post('/otp-verify', [AuthController::class, 'verifyOtp'])->middleware('throttle:20,1');
-    Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:15,1');
-    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:20,1');
-    Route::post('/profile', [AuthController::class, 'updateProfile']);
-    Route::get('/status', [AuthController::class, 'checkStatus']);
-    Route::post('/status', [AuthController::class, 'checkStatus']);
-    Route::match(['get', 'post'], '/mail-test', [AuthController::class, 'testMail']);
-    Route::match(['get', 'post'], '/mail-matrix', [AuthController::class, 'diagnosticMatrix']);
+Route::prefix('auth')->group(function () {
+    // High-frequency status check with lenient throttle to support shared venue Wi-Fi NAT IPs
+    Route::match(['get', 'post'], '/status', [AuthController::class, 'checkStatus'])->middleware('throttle:300,1');
+
+    // Strict throttle on sensitive auth operations
+    Route::middleware('throttle:60,1')->group(function () {
+        Route::post('/register', [AuthController::class, 'register']);
+        Route::post('/login', [AuthController::class, 'login']);
+        Route::post('/otp-request', [AuthController::class, 'requestOtp'])->middleware('throttle:15,1');
+        Route::post('/otp-verify', [AuthController::class, 'verifyOtp'])->middleware('throttle:20,1');
+        Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:15,1');
+        Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:20,1');
+        Route::post('/profile', [AuthController::class, 'updateProfile']);
+        Route::match(['get', 'post'], '/mail-test', [AuthController::class, 'testMail']);
+        Route::match(['get', 'post'], '/mail-matrix', [AuthController::class, 'diagnosticMatrix']);
+    });
 });
 
 // Admin Authentication Routes
@@ -32,6 +36,7 @@ Route::prefix('admin')->group(function () {
 });
 
 // System Settings, Moderation & Maintenance Mode
+Route::get('/settings/bootstrap', [AdminController::class, 'getBootstrapSettings']);
 Route::get('/settings/maintenance', [AdminController::class, 'getMaintenanceStatus']);
 Route::post('/settings/maintenance', [AdminController::class, 'setMaintenanceMode']);
 Route::get('/settings/moderation', [AdminController::class, 'getModerationSettings']);

@@ -19,6 +19,7 @@ import {
   Check
 } from 'lucide-react';
 import { BookSpotting, Stall, UserProfile } from '../types';
+import { resolveImageUrl } from '../utils/api';
 
 interface CommunityFeedProps {
   spots: BookSpotting[];
@@ -737,7 +738,7 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
                                   className="relative aspect-square rounded-md overflow-hidden bg-zinc-200 cursor-pointer hover:opacity-95 transition-opacity border border-amber-200"
                                 >
                                   <img
-                                    src={imgUrl}
+                                    src={resolveImageUrl(imgUrl)}
                                     alt={`${spot.bookName} ref ${idx + 1}`}
                                     className="w-full h-full object-cover"
                                   />
@@ -849,7 +850,7 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
                                 className="relative aspect-4/3 rounded-lg overflow-hidden bg-zinc-200 cursor-pointer hover:opacity-95 transition-opacity"
                               >
                                 <img
-                                  src={imgUrl}
+                                  src={resolveImageUrl(imgUrl)}
                                   alt={`${spot.bookName} shelf photo ${idx + 1}`}
                                   className="w-full h-full object-cover"
                                   referrerPolicy="no-referrer"

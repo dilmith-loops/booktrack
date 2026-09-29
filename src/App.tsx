@@ -201,6 +201,53 @@ export default function App() {
   const checkAllSettings = async () => {
     setIsCheckingMaintenance(true);
     try {
+      // 1. Preferred: Single consolidated bootstrap call (66% fewer network requests)
+      const bRes = await apiFetch('/api/settings/bootstrap').catch(() => null);
+      if (bRes && bRes.ok) {
+        const bData = await bRes.json();
+        if (bData.maintenance) {
+          const enabled = Boolean(bData.maintenance.enabled);
+          setIsMaintenanceMode(enabled);
+          if (bData.maintenance.message) {
+            setMaintenanceMessage(bData.maintenance.message);
+          }
+          try {
+            localStorage.setItem(
+              'sampath_maintenance_mode',
+              JSON.stringify({ enabled, message: bData.maintenance.message })
+            );
+          } catch { }
+        }
+
+        if (bData.moderation) {
+          const settings: ModerationSettings = {
+            profanityFilter: bData.moderation.profanityFilter !== false,
+            aiSpotVerification: bData.moderation.aiSpotVerification !== false,
+            imageGuardian: bData.moderation.imageGuardian !== false,
+            updatedAt: bData.moderation.updatedAt
+          };
+          setModerationSettings(settings);
+          try {
+            localStorage.setItem('sampath_moderation_settings', JSON.stringify(settings));
+          } catch { }
+        }
+
+        if (bData.notice?.notice) {
+          const nData = bData.notice.notice;
+          setNoticeBanner((prev) => {
+            if (prev.message !== nData.message || prev.updatedAt !== nData.updatedAt) {
+              setIsNoticeDismissed(false);
+            }
+            return nData;
+          });
+          try {
+            localStorage.setItem('sampath_book_fair_notice', JSON.stringify(nData));
+          } catch { }
+        }
+        return;
+      }
+
+      // Fallback for older server deployments
       const [mRes, modRes, nRes] = await Promise.all([
         apiFetch('/api/settings/maintenance'),
         apiFetch('/api/settings/moderation'),
@@ -269,8 +316,8 @@ export default function App() {
       checkAllSettings();
     };
 
-    // Gentle sync every 45s (replaces aggressive intervals and focus triggers)
-    const interval = setInterval(handleSync, 45000);
+    // Gentle sync every 3 minutes (180,000 ms) instead of 45 seconds
+    const interval = setInterval(handleSync, 180000);
     return () => clearInterval(interval);
   }, []);
 
@@ -438,24 +485,15 @@ export default function App() {
     };
 
     verifyAccountStatus();
+    // Gentle background account status check every 3 minutes (180,000 ms)
     const interval = setInterval(() => {
       if (document.hidden) return;
       verifyAccountStatus();
-    }, 60000); // 60 seconds gentle check
-
-    let lastFocus = Date.now();
-    const handleFocus = () => {
-      if (document.hidden) return;
-      if (Date.now() - lastFocus < 45000) return;
-      lastFocus = Date.now();
-      verifyAccountStatus();
-    };
-    window.addEventListener('focus', handleFocus);
+    }, 180000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
     };
   }, [userProfile?.id, userProfile?.handle, userProfile?.email, handleLogoutDueToDisabled]);
 
@@ -606,12 +644,15 @@ export default function App() {
       const isAdmin = Boolean(sessionStorage.getItem('sampath_admin_token'));
       const spotsEndpoint = isAdmin ? '/api/spots?include_archived=true' : '/api/spots';
 
+      // Avoid refetching static stall records on every focus/load if already populated in state
+      const needStalls = stalls.length === 0;
+
       const [stallsRes, spotsRes] = await Promise.all([
-        apiFetch('/api/stalls'),
+        needStalls ? apiFetch('/api/stalls') : Promise.resolve(null),
         apiFetch(spotsEndpoint)
       ]);
 
-      if (stallsRes.ok) {
+      if (stallsRes && stallsRes.ok) {
         const sData = await stallsRes.json();
         if (Array.isArray(sData.stalls)) {
           const legacyDummyIds = new Set([
@@ -716,7 +757,8 @@ export default function App() {
     let lastFocus = Date.now();
     const handleFocus = () => {
       if (document.hidden) return;
-      if (Date.now() - lastFocus < 45000) return;
+      // 2 minutes cooldown (120,000 ms) on focus to prevent spamming server
+      if (Date.now() - lastFocus < 120000) return;
       lastFocus = Date.now();
       loadData();
     };

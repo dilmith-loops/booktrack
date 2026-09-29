@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
+import { resolveImageUrl } from '../utils/api';
 
 interface PhotoLightboxModalProps {
   isOpen: boolean;
@@ -56,7 +57,7 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
         {/* Main Image View */}
         <div className="relative w-full bg-black border-x-2 border-black flex items-center justify-center min-h-[300px] max-h-[70vh] overflow-hidden">
           <img
-            src={images[currentIndex]}
+            src={resolveImageUrl(images[currentIndex])}
             alt={`${bookTitle} shelf`}
             className="w-full h-full max-h-[68vh] object-contain"
             referrerPolicy="no-referrer"
@@ -93,7 +94,7 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
                   currentIndex === i ? 'border-[#F37021] scale-105 shadow-[2px_2px_0px_#F37021]' : 'border-black opacity-60 hover:opacity-100'
                 }`}
               >
-                <img src={img} alt={`Thumb ${i + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                <img src={resolveImageUrl(img)} alt={`Thumb ${i + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               </button>
             ))}
           </div>

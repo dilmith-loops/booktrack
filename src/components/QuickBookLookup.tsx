@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, MapPin, Sparkles, X, Image as ImageIcon, ChevronRight, CheckCircle2, BookOpen } from 'lucide-react';
 import { BookSpotting } from '../types';
 import { trackEvent } from '../utils/analytics';
+import { resolveImageUrl } from '../utils/api';
 
 interface QuickBookLookupProps {
   spots: BookSpotting[];
@@ -124,7 +125,7 @@ export const QuickBookLookup: React.FC<QuickBookLookupProps> = ({
                       {spot.images.length > 0 ? (
                         <div className="relative w-12 h-12 rounded-lg border border-zinc-200 overflow-hidden flex-shrink-0 bg-zinc-100">
                           <img
-                            src={spot.images[0]}
+                            src={resolveImageUrl(spot.images[0])}
                             alt={spot.bookName}
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"

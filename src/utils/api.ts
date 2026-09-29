@@ -101,4 +101,16 @@ export const apiFetch = async (url: string, options?: ApiFetchOptions): Promise<
   return executeFetch();
 };
 
+/**
+ * Safely resolves an image path to an absolute or subpath-aware URL.
+ * Supports external URLs (https://), Base64 data URIs (data:), and relative paths (/uploads/spots/...).
+ */
+export const resolveImageUrl = (src: string): string => {
+  if (!src) return '';
+  if (src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://')) {
+    return src;
+  }
+  return getApiUrl(src);
+};
+
 
