@@ -258,20 +258,20 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (checkIsAdminRoute() && !sessionStorage.getItem('sampath_admin_token')) {
+      return;
+    }
     checkAllSettings();
 
     const handleSync = () => {
       if (document.hidden) return;
+      if (checkIsAdminRoute() && !sessionStorage.getItem('sampath_admin_token')) return;
       checkAllSettings();
     };
 
-    // Gentle sync every 45s and on window focus (replaces 3 aggressive intervals)
+    // Gentle sync every 45s (replaces aggressive intervals and focus triggers)
     const interval = setInterval(handleSync, 45000);
-    window.addEventListener('focus', handleSync);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', handleSync);
-    };
+    return () => clearInterval(interval);
   }, []);
 
   const handleToggleMaintenanceMode = async (enabled: boolean, message?: string) => {
@@ -592,9 +592,12 @@ export default function App() {
         } catch {}
       }
 
+      const isAdmin = Boolean(sessionStorage.getItem('sampath_admin_token'));
+      const spotsEndpoint = isAdmin ? '/api/spots?include_archived=true' : '/api/spots';
+
       const [stallsRes, spotsRes] = await Promise.all([
         apiFetch('/api/stalls'),
-        apiFetch('/api/spots?include_archived=true')
+        apiFetch(spotsEndpoint)
       ]);
 
       if (stallsRes.ok) {
@@ -694,9 +697,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // If on admin route and unauthenticated, defer loading data until logged in
+    if (checkIsAdminRoute() && !sessionStorage.getItem('sampath_admin_token')) {
+      return;
+    }
     loadData();
-    window.addEventListener('focus', loadData);
-    return () => window.removeEventListener('focus', loadData);
+    let lastFocus = Date.now();
+    const handleFocus = () => {
+      if (document.hidden) return;
+      if (Date.now() - lastFocus < 45000) return;
+      lastFocus = Date.now();
+      loadData();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [loadData]);
 
   // Periodic background auto-fetch for chat spots feed (gentle 25 seconds, only active when chat tab is visible)

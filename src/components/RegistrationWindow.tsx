@@ -283,7 +283,8 @@ export const RegistrationWindow: React.FC<RegistrationWindowProps> = ({
         body: JSON.stringify({
           identifier: loginIdentifier.trim(),
           password: loginPassword
-        })
+        }),
+        timeoutMs: 25000
       });
 
       const data = await res.json();

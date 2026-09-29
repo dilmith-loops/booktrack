@@ -481,7 +481,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         body: JSON.stringify({
           username: adminUsername.trim(),
           password: adminPassword
-        })
+        }),
+        timeoutMs: 30000
       });
 
       const data = await res.json().catch(() => ({}));
@@ -499,8 +500,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       setIsAuthenticated(true);
       setAdminPassword('');
       loadServerUsers(data.token);
-    } catch {
-      setAuthError('Network error. Failed to authenticate administrator.');
+      if (onRefreshStalls) {
+        onRefreshStalls();
+      }
+    } catch (err: any) {
+      setAuthError(err?.message || 'Network error. Failed to authenticate administrator.');
     } finally {
       setIsLoggingIn(false);
     }

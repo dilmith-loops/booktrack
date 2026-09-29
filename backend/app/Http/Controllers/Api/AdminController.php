@@ -12,13 +12,50 @@ class AdminController extends Controller
     /**
      * Authenticate Admin using username & password.
      */
+    /**
+     * Safely resolve admin credentials from config, env, or direct .env file parser.
+     */
+    public static function resolveAdminCredential(string $envKey, string $configKey): ?string
+    {
+        $val = config($configKey);
+        if (!empty($val)) {
+            return (string) $val;
+        }
+
+        $val = env($envKey);
+        if (!empty($val)) {
+            return (string) $val;
+        }
+
+        // Direct fallback: read from .env if config is cached or env() is blank
+        $envFile = base_path('.env');
+        if (file_exists($envFile)) {
+            $lines = @file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            if (is_array($lines)) {
+                foreach ($lines as $line) {
+                    $line = trim($line);
+                    if (str_starts_with($line, '#')) continue;
+                    if (str_starts_with($line, $envKey . '=')) {
+                        $raw = trim(substr($line, strlen($envKey) + 1));
+                        return trim($raw, " \t\n\r\0\x0B\"'");
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Authenticate Admin using username & password.
+     */
     public function login(Request $request): JsonResponse
     {
         $username = trim((string) $request->input('username', ''));
         $password = (string) $request->input('password', '');
 
-        $expectedUser = config('auth.admin.username') ?: env('ADMIN_USERNAME');
-        $expectedPass = config('auth.admin.password') ?: env('ADMIN_PASSWORD');
+        $expectedUser = self::resolveAdminCredential('ADMIN_USERNAME', 'auth.admin.username');
+        $expectedPass = self::resolveAdminCredential('ADMIN_PASSWORD', 'auth.admin.password');
 
         if (empty($expectedUser) || empty($expectedPass)) {
             return response()->json([
@@ -66,7 +103,7 @@ class AdminController extends Controller
         return response()->json([
             'success' => true,
             'authenticated' => true,
-            'username' => config('auth.admin.username') ?: env('ADMIN_USERNAME')
+            'username' => self::resolveAdminCredential('ADMIN_USERNAME', 'auth.admin.username')
         ]);
     }
 
@@ -91,7 +128,7 @@ class AdminController extends Controller
             return false;
         }
 
-        $expectedUser = config('auth.admin.username') ?: env('ADMIN_USERNAME');
+        $expectedUser = self::resolveAdminCredential('ADMIN_USERNAME', 'auth.admin.username');
         if (empty($expectedUser) || strcasecmp((string) $data['admin'], (string) $expectedUser) !== 0) {
             return false;
         }
@@ -145,7 +182,7 @@ class AdminController extends Controller
             'enabled' => $enabled,
             'message' => $message,
             'updatedAt' => date('c'),
-            'updatedBy' => config('auth.admin.username', 'admin'),
+            'updatedBy' => self::resolveAdminCredential('ADMIN_USERNAME', 'auth.admin.username') ?? 'admin',
         ];
 
         $filePath = storage_path('app/maintenance.json');
@@ -220,7 +257,7 @@ class AdminController extends Controller
             'aiSpotVerification' => $aiSpotVerification,
             'imageGuardian' => $imageGuardian,
             'updatedAt' => date('c'),
-            'updatedBy' => config('auth.admin.username', 'admin'),
+            'updatedBy' => self::resolveAdminCredential('ADMIN_USERNAME', 'auth.admin.username') ?? 'admin',
         ];
 
         $dir = dirname($filePath);
@@ -309,7 +346,7 @@ class AdminController extends Controller
             'linkUrl' => $linkUrl,
             'isClosable' => $isClosable,
             'updatedAt' => date('c'),
-            'updatedBy' => config('auth.admin.username', 'admin'),
+            'updatedBy' => self::resolveAdminCredential('ADMIN_USERNAME', 'auth.admin.username') ?? 'admin',
         ];
 
         $dir = dirname($filePath);
