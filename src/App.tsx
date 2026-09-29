@@ -1389,6 +1389,7 @@ export default function App() {
                   selectedHallFilter={selectedHallFilter}
                   onSelectHallFilter={setSelectedHallFilter}
                   chatRefreshKey={chatRefreshKey}
+                  onRefreshFeed={pollLatestSpots}
                   onOpenNewSpotModal={(title?: string, replySpot?: BookSpotting) => {
                     setInitialBookForModal(title || '');
                     setInitialStallIdForModal('');

@@ -13,7 +13,10 @@ import {
   Archive, 
   Trash2,
   Info,
-  Loader2
+  Loader2,
+  ArrowUp,
+  RotateCw,
+  Check
 } from 'lucide-react';
 import { BookSpotting, Stall, UserProfile } from '../types';
 
@@ -33,6 +36,7 @@ interface CommunityFeedProps {
   onDeleteSpot?: (spotId: string, userHandle?: string) => void;
   highlightedSpotId?: string | null;
   chatRefreshKey?: number;
+  onRefreshFeed?: () => Promise<void> | void;
 }
 
 export const CommunityFeed: React.FC<CommunityFeedProps> = ({
@@ -49,7 +53,8 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
   onArchiveSpot,
   onDeleteSpot,
   highlightedSpotId,
-  chatRefreshKey
+  chatRefreshKey,
+  onRefreshFeed
 }) => {
   // Track local user ratings { [spotId]: score }
   const [userRatings, setUserRatings] = useState<Record<string, number>>(() => {
@@ -125,6 +130,109 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
       behavior
     });
   }, []);
+
+  // Pull-up to refresh state when user force-scrolls past the last showing message
+  const [pullUpDistance, setPullUpDistance] = useState<number>(0);
+  const [isPullRefreshing, setIsPullRefreshing] = useState<boolean>(false);
+  const [justRefreshed, setJustRefreshed] = useState<boolean>(false);
+  const touchStartYRef = useRef<number | null>(null);
+  const wasAtBottomOnTouchStartRef = useRef<boolean>(false);
+  const wheelAccumulatorRef = useRef<number>(0);
+  const wheelTimerRef = useRef<any>(null);
+
+  // Trigger feed refresh (via onRefreshFeed prop)
+  const triggerFeedRefresh = useCallback(async () => {
+    if (isPullRefreshing) return;
+    setIsPullRefreshing(true);
+    setJustRefreshed(false);
+
+    try {
+      if (onRefreshFeed) {
+        await onRefreshFeed();
+      }
+      setJustRefreshed(true);
+      setTimeout(() => {
+        setJustRefreshed(false);
+      }, 1500);
+    } catch (err) {
+      console.warn('Feed refresh error:', err);
+    } finally {
+      setIsPullRefreshing(false);
+      setPullUpDistance(0);
+    }
+  }, [isPullRefreshing, onRefreshFeed]);
+
+  // Handle pull-up force scroll gesture at the bottom
+  useEffect(() => {
+    const handleTouchStart = (e: TouchEvent) => {
+      if (isPullRefreshing) return;
+      touchStartYRef.current = e.touches[0].clientY;
+      const scrollBottom = window.innerHeight + window.scrollY;
+      const totalHeight = document.documentElement.scrollHeight;
+      wasAtBottomOnTouchStartRef.current = scrollBottom >= totalHeight - 45;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!wasAtBottomOnTouchStartRef.current || touchStartYRef.current === null || isPullRefreshing) {
+        return;
+      }
+      const currentY = e.touches[0].clientY;
+      const deltaY = touchStartYRef.current - currentY; // positive when dragging upwards past bottom
+
+      if (deltaY > 0) {
+        const pull = Math.min(80, Math.pow(deltaY, 0.8));
+        setPullUpDistance(pull);
+      } else {
+        setPullUpDistance(0);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (pullUpDistance >= 45 && !isPullRefreshing) {
+        triggerFeedRefresh();
+      } else {
+        setPullUpDistance(0);
+      }
+      touchStartYRef.current = null;
+      wasAtBottomOnTouchStartRef.current = false;
+    };
+
+    // Wheel listener for desktop trackpad / mouse wheel overscroll at the bottom
+    const handleWheel = (e: WheelEvent) => {
+      if (isPullRefreshing) return;
+      const scrollBottom = window.innerHeight + window.scrollY;
+      const totalHeight = document.documentElement.scrollHeight;
+      const isAtBottom = scrollBottom >= totalHeight - 25;
+
+      if (isAtBottom && e.deltaY > 0) {
+        wheelAccumulatorRef.current += e.deltaY;
+        setPullUpDistance(Math.min(65, wheelAccumulatorRef.current * 0.4));
+
+        if (wheelTimerRef.current) clearTimeout(wheelTimerRef.current);
+        wheelTimerRef.current = setTimeout(() => {
+          if (wheelAccumulatorRef.current > 75) {
+            triggerFeedRefresh();
+          } else {
+            setPullUpDistance(0);
+          }
+          wheelAccumulatorRef.current = 0;
+        }, 180);
+      }
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+    window.addEventListener('wheel', handleWheel, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('wheel', handleWheel);
+      if (wheelTimerRef.current) clearTimeout(wheelTimerRef.current);
+    };
+  }, [isPullRefreshing, pullUpDistance, triggerFeedRefresh]);
 
   // Show loading animation in the chat until the first 10 messages are loaded
   useEffect(() => {
@@ -841,6 +949,52 @@ export const CommunityFeed: React.FC<CommunityFeedProps> = ({
             );
           })
         )}
+        {/* Pull-Up Refresh Zone (Below the Last Showing Message) */}
+        {!isInitialLoading && visibleSpots.length > 0 && (
+          <div 
+            className="flex flex-col items-center justify-center pt-2 pb-3 transition-all duration-200 select-none"
+            style={{
+              transform: pullUpDistance > 0 ? `translateY(-${Math.min(12, pullUpDistance * 0.2)}px)` : 'none'
+            }}
+          >
+            {isPullRefreshing ? (
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/95 border border-[#EA580C]/30 text-[#EA580C] shadow-sm text-xs font-bold animate-in fade-in duration-150">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#F37021]" />
+                <span>Checking for new messages...</span>
+              </div>
+            ) : justRefreshed ? (
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-700 shadow-sm text-xs font-bold animate-in zoom-in-95 duration-150">
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Feed is up to date!</span>
+              </div>
+            ) : pullUpDistance >= 45 ? (
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#F37021] text-white shadow-md text-xs font-black animate-bounce duration-300">
+                <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Release to refresh feed!</span>
+              </div>
+            ) : pullUpDistance > 10 ? (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-[#EA580C] shadow-xs text-[11px] font-bold">
+                <ArrowUp 
+                  className="w-3 h-3 transition-transform duration-150" 
+                  style={{ transform: `rotate(${Math.min(180, (pullUpDistance / 45) * 180)}deg)` }} 
+                />
+                <span>Pull up to refresh feed...</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                id="refresh-chat-feed-bottom-btn"
+                onClick={triggerFeedRefresh}
+                className="group inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/80 hover:bg-white text-zinc-500 hover:text-zinc-800 border border-zinc-200/70 shadow-2xs text-[10px] font-semibold transition-all active:scale-95 cursor-pointer"
+                title="Force scroll up or tap to refresh messages"
+              >
+                <RotateCw className="w-3 h-3 text-zinc-400 group-hover:text-[#F37021] group-hover:rotate-180 transition-all duration-300" />
+                <span>Scroll up or tap to check new messages</span>
+              </button>
+            )}
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
     </div>
