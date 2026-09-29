@@ -17,28 +17,17 @@ class AdminController extends Controller
         $username = trim((string) $request->input('username', ''));
         $password = (string) $request->input('password', '');
 
-        $expectedUser = config('auth.admin.username') ?: (env('ADMIN_USERNAME') ?: 'admin');
-        $expectedPass = config('auth.admin.password') ?: (env('ADMIN_PASSWORD') ?: 'SampathAdmin@2026!');
+        $expectedUser = config('auth.admin.username') ?: env('ADMIN_USERNAME');
+        $expectedPass = config('auth.admin.password') ?: env('ADMIN_PASSWORD');
 
-        // Check if username matches (case-insensitive)
-        $userMatch = strcasecmp($username, $expectedUser) === 0;
-
-        // Support configured password as well as standard documented defaults:
-        $validPasswords = array_unique(array_filter([
-            $expectedPass,
-            'SampathAdmin@2026!',
-            'SampathAdmin@2026'
-        ]));
-
-        $passMatch = false;
-        foreach ($validPasswords as $validPass) {
-            if (hash_equals((string) $validPass, $password)) {
-                $passMatch = true;
-                break;
-            }
+        if (empty($expectedUser) || empty($expectedPass)) {
+            return response()->json([
+                'error' => 'Admin credentials are not configured on the server. Please ensure ADMIN_USERNAME and ADMIN_PASSWORD are set in your .env file.'
+            ], 500);
         }
 
-        if (!$userMatch || !$passMatch) {
+        // Check if username and password match (username is case-insensitive)
+        if (strcasecmp($username, (string) $expectedUser) !== 0 || !hash_equals((string) $expectedPass, $password)) {
             return response()->json([
                 'error' => 'Invalid administrative credentials.'
             ], 401);
@@ -77,7 +66,7 @@ class AdminController extends Controller
         return response()->json([
             'success' => true,
             'authenticated' => true,
-            'username' => config('auth.admin.username') ?: (env('ADMIN_USERNAME') ?: 'admin')
+            'username' => config('auth.admin.username') ?: env('ADMIN_USERNAME')
         ]);
     }
 
@@ -102,8 +91,8 @@ class AdminController extends Controller
             return false;
         }
 
-        $expectedUser = config('auth.admin.username') ?: (env('ADMIN_USERNAME') ?: 'admin');
-        if (strcasecmp((string) $data['admin'], $expectedUser) !== 0) {
+        $expectedUser = config('auth.admin.username') ?: env('ADMIN_USERNAME');
+        if (empty($expectedUser) || strcasecmp((string) $data['admin'], (string) $expectedUser) !== 0) {
             return false;
         }
 

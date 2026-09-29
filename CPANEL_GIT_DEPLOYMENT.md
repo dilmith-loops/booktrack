@@ -97,7 +97,7 @@ CACHE_STORE=file
 
 # Administrative Password for Control Center (/admin)
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=SampathAdmin@2026
+ADMIN_PASSWORD=your_secure_admin_password_here
 
 # Google Gemini API Key for Content Moderation
 GEMINI_API_KEY=your_gemini_api_key_here
@@ -153,5 +153,5 @@ Whenever you push new updates to `github.com/dilmith-loops/booktrack`:
    - Browser console shows no 404 errors for assets or scripts.
 2. Visit **`https://bookfairtracker.com/admin`**:
    - Admin authentication modal opens.
-   - Log in with `SampathAdmin@2026`.
+   - Log in with your configured `ADMIN_USERNAME` and `ADMIN_PASSWORD`.
    - Verify that all 170 fair stalls and registered spotters are active and readable from MySQL.

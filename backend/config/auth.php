@@ -120,8 +120,8 @@ return [
     |--------------------------------------------------------------------------
     */
     'admin' => [
-        'username' => env('ADMIN_USERNAME', 'admin'),
-        'password' => env('ADMIN_PASSWORD', 'SampathAdmin@2026!'),
+        'username' => env('ADMIN_USERNAME'),
+        'password' => env('ADMIN_PASSWORD'),
     ],
 
 ];
