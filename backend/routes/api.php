@@ -32,6 +32,7 @@ Route::prefix('admin')->group(function () {
 });
 
 // System Settings, Moderation & Maintenance Mode
+Route::get('/settings', [AdminController::class, 'getAllSettings']);
 Route::get('/settings/maintenance', [AdminController::class, 'getMaintenanceStatus']);
 Route::post('/settings/maintenance', [AdminController::class, 'setMaintenanceMode']);
 Route::get('/settings/moderation', [AdminController::class, 'getModerationSettings']);
@@ -74,6 +75,7 @@ Route::post('/spots/{id}/ai-verify', [SpotController::class, 'toggleAiVerified']
 Route::post('/spots/{id}/archive', [SpotController::class, 'archive']);
 Route::post('/spots/{id}/unarchive', [SpotController::class, 'unarchive']);
 Route::post('/spots/{id}/toggle-archive', [SpotController::class, 'toggleArchive']);
+Route::post('/spots/migrate-images', [SpotController::class, 'migrateLegacyImages']);
 
 Route::post('/check-book', [SpotController::class, 'checkBook']);
 Route::post('/moderate-text', [ModerationController::class, 'moderateText']);

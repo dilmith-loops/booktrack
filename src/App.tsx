@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Header } from './components/Header';
 import { CommunityFeed } from './components/CommunityFeed';
 import { QuickBookLookup } from './components/QuickBookLookup';
@@ -58,6 +58,11 @@ export default function App() {
     } catch {}
     return [];
   });
+  const spotsRef = useRef<BookSpotting[]>(spots);
+  useEffect(() => {
+    spotsRef.current = spots;
+  }, [spots]);
+
   const [selectedHallFilter, setSelectedHallFilter] = useState('All Halls');
   const [activeTab, setActiveTab] = useState<PwaTab>('chat');
   const [showFeatureTour, setShowFeatureTour] = useState(false);
@@ -193,21 +198,51 @@ export default function App() {
 
   const [isCheckingMaintenance, setIsCheckingMaintenance] = useState(false);
 
-  const checkMaintenanceStatus = async () => {
+  const checkAllSettings = async () => {
     setIsCheckingMaintenance(true);
     try {
-      const res = await apiFetch('/api/settings/maintenance');
+      const res = await apiFetch('/api/settings');
       if (res.ok) {
         const data = await res.json();
-        const enabled = Boolean(data.enabled);
-        setIsMaintenanceMode(enabled);
-        if (data.message) {
-          setMaintenanceMessage(data.message);
+        // 1. Maintenance status
+        if (data.maintenance) {
+          const enabled = Boolean(data.maintenance.enabled);
+          setIsMaintenanceMode(enabled);
+          if (data.maintenance.message) {
+            setMaintenanceMessage(data.maintenance.message);
+          }
+          try {
+            localStorage.setItem(
+              'sampath_maintenance_mode',
+              JSON.stringify({ enabled, message: data.maintenance.message })
+            );
+          } catch {}
         }
-        localStorage.setItem(
-          'sampath_maintenance_mode',
-          JSON.stringify({ enabled, message: data.message })
-        );
+        // 2. Moderation settings
+        if (data.moderation) {
+          const settings: ModerationSettings = {
+            profanityFilter: data.moderation.profanityFilter !== false,
+            aiSpotVerification: data.moderation.aiSpotVerification !== false,
+            imageGuardian: data.moderation.imageGuardian !== false,
+            updatedAt: data.moderation.updatedAt
+          };
+          setModerationSettings(settings);
+          try {
+            localStorage.setItem('sampath_moderation_settings', JSON.stringify(settings));
+          } catch {}
+        }
+        // 3. Notice banner
+        if (data.notice) {
+          setNoticeBanner((prev) => {
+            if (prev.message !== data.notice.message || prev.updatedAt !== data.notice.updatedAt) {
+              setIsNoticeDismissed(false);
+            }
+            return data.notice;
+          });
+          try {
+            localStorage.setItem('sampath_book_fair_notice', JSON.stringify(data.notice));
+          } catch {}
+        }
       }
     } catch {
       // Keep existing local state on network error
@@ -217,10 +252,20 @@ export default function App() {
   };
 
   useEffect(() => {
-    checkMaintenanceStatus();
-    // Poll maintenance status periodically (every 20 seconds)
-    const interval = setInterval(checkMaintenanceStatus, 20000);
-    return () => clearInterval(interval);
+    checkAllSettings();
+
+    const handleSync = () => {
+      if (document.hidden) return;
+      checkAllSettings();
+    };
+
+    // Gentle sync every 45s and on window focus (replaces 3 aggressive intervals)
+    const interval = setInterval(handleSync, 45000);
+    window.addEventListener('focus', handleSync);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleSync);
+    };
   }, []);
 
   const handleToggleMaintenanceMode = async (enabled: boolean, message?: string) => {
@@ -263,31 +308,6 @@ export default function App() {
     };
   });
 
-  const checkModerationStatus = async () => {
-    try {
-      const res = await apiFetch('/api/settings/moderation');
-      if (res.ok) {
-        const data = await res.json();
-        const settings: ModerationSettings = {
-          profanityFilter: data.profanityFilter !== false,
-          aiSpotVerification: data.aiSpotVerification !== false,
-          imageGuardian: data.imageGuardian !== false,
-          updatedAt: data.updatedAt
-        };
-        setModerationSettings(settings);
-        localStorage.setItem('sampath_moderation_settings', JSON.stringify(settings));
-      }
-    } catch {
-      // Keep existing local state on network error
-    }
-  };
-
-  useEffect(() => {
-    checkModerationStatus();
-    const interval = setInterval(checkModerationStatus, 20000);
-    return () => clearInterval(interval);
-  }, []);
-
   const handleUpdateModerationSettings = async (nextSettings: ModerationSettings) => {
     setModerationSettings(nextSettings);
     localStorage.setItem('sampath_moderation_settings', JSON.stringify(nextSettings));
@@ -306,33 +326,6 @@ export default function App() {
       console.error('Failed to sync moderation settings to server', err);
     }
   };
-
-  const checkNoticeBannerStatus = async () => {
-    try {
-      const res = await apiFetch('/api/settings/notice-banner');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.notice) {
-          setNoticeBanner((prev) => {
-            if (prev.message !== data.notice.message || prev.updatedAt !== data.notice.updatedAt) {
-              setIsNoticeDismissed(false);
-            }
-            return data.notice;
-          });
-          localStorage.setItem('sampath_book_fair_notice', JSON.stringify(data.notice));
-        }
-      }
-    } catch {
-      // Keep existing local state on network error
-    }
-  };
-
-  useEffect(() => {
-    checkNoticeBannerStatus();
-    if (showAdminModal) return;
-    const interval = setInterval(checkNoticeBannerStatus, 15000);
-    return () => clearInterval(interval);
-  }, [showAdminModal]);
 
   const handleUpdateNoticeBanner = async (nextNotice: NoticeBannerType) => {
     setNoticeBanner(nextNotice);
@@ -640,16 +633,24 @@ export default function App() {
     }
   }, []);
 
-  const pollLatestSpots = React.useCallback(async () => {
+  const pollLatestSpots = React.useCallback(async (forceFull = false) => {
     try {
-      const spotsRes = await apiFetch('/api/spots?include_archived=true');
+      const currentSpots = spotsRef.current;
+      const maxTs = forceFull ? 0 : currentSpots.reduce((max, s) => Math.max(max, s.timestamp || 0), 0);
+      const url = maxTs > 0
+        ? `/api/spots?since=${maxTs}`
+        : '/api/spots?include_archived=true';
+
+      const spotsRes = await apiFetch(url);
       if (spotsRes.ok) {
         const pData = await spotsRes.json();
         if (Array.isArray(pData.spots)) {
+          if (pData.spots.length === 0) return;
+
           const legacyDummySpotIds = new Set([
             'spot-1', 'spot-2', 'spot-3', 'spot-4', 'spot-5', 'req-1', 'req-2', 'spot-hp-reply'
           ]);
-          const cleanSpots = pData.spots.filter(
+          const incoming = pData.spots.filter(
             (s: BookSpotting) =>
               !legacyDummySpotIds.has(s.id) &&
               !s.id.startsWith('dummy-spot-') &&
@@ -657,33 +658,27 @@ export default function App() {
               !s.id.startsWith('req-dummy-')
           );
 
+          if (incoming.length === 0) return;
+
           setSpots((prev) => {
-            if (
-              cleanSpots.length === prev.length &&
-              (cleanSpots.length === 0 || (
-                cleanSpots[0]?.id === prev[0]?.id &&
-                cleanSpots[cleanSpots.length - 1]?.id === prev[prev.length - 1]?.id
-              ))
-            ) {
-              let changed = false;
-              for (let i = 0; i < Math.min(cleanSpots.length, 30); i++) {
-                if (
-                  cleanSpots[i].helpfulCount !== prev[i]?.helpfulCount ||
-                  cleanSpots[i].status !== prev[i]?.status ||
-                  cleanSpots[i].ratingAverage !== prev[i]?.ratingAverage ||
-                  cleanSpots[i].isResolved !== prev[i]?.isResolved
-                ) {
-                  changed = true;
-                  break;
-                }
-              }
-              if (!changed) return prev;
+            const map = new Map<string, BookSpotting>();
+            if (maxTs === 0) {
+              incoming.forEach((s: BookSpotting) => map.set(s.id, s));
+            } else {
+              prev.forEach((s: BookSpotting) => map.set(s.id, s));
+              incoming.forEach((s: BookSpotting) => map.set(s.id, s));
             }
 
+            const merged = Array.from(map.values()).sort((a, b) => {
+              if (a.isPinned && !b.isPinned) return -1;
+              if (!a.isPinned && b.isPinned) return 1;
+              return (b.timestamp || 0) - (a.timestamp || 0);
+            });
+
             try {
-              localStorage.setItem('sampath_bmich_spots', JSON.stringify(cleanSpots));
+              localStorage.setItem('sampath_bmich_spots', JSON.stringify(merged));
             } catch {}
-            return cleanSpots;
+            return merged;
           });
         }
       }
@@ -698,15 +693,17 @@ export default function App() {
     return () => window.removeEventListener('focus', loadData);
   }, [loadData]);
 
-  // Periodic background auto-fetch for chat spots feed (every 5 seconds when tab is active)
+  // Periodic background auto-fetch for chat spots feed (gentle 25 seconds, only active when chat tab is visible)
   useEffect(() => {
+    if (activeTab !== 'chat') return;
+
     const pollInterval = setInterval(() => {
       if (document.hidden || isMaintenanceMode) return;
       pollLatestSpots();
-    }, 5000);
+    }, 25000);
 
     return () => clearInterval(pollInterval);
-  }, [pollLatestSpots, isMaintenanceMode]);
+  }, [pollLatestSpots, isMaintenanceMode, activeTab]);
 
   const handleSpotAdded = (newSpot: BookSpotting) => {
     setSpots((prev) => {
@@ -867,7 +864,7 @@ export default function App() {
           userHandle: handle
         })
       });
-      pollLatestSpots();
+      pollLatestSpots(true);
     } catch (err) {
       console.error('Error deleting spot from database:', err);
     }
@@ -901,7 +898,7 @@ export default function App() {
         },
         body: JSON.stringify({ userHandle: handle })
       });
-      pollLatestSpots();
+      pollLatestSpots(true);
     } catch (err) {
       console.error('Error archiving spot:', err);
     }
@@ -925,6 +922,7 @@ export default function App() {
         method: 'POST',
         headers: getAdminHeaders()
       });
+      pollLatestSpots(true);
     } catch (err) {
       console.error('Error unarchiving spot:', err);
     }
@@ -1221,7 +1219,7 @@ export default function App() {
             isMaintenanceMode={isMaintenanceMode}
             maintenanceMessage={maintenanceMessage}
             onOpenAdmin={() => setShowAdminModal(true)}
-            onRefreshStatus={checkMaintenanceStatus}
+            onRefreshStatus={checkAllSettings}
             isCheckingStatus={isCheckingMaintenance}
           />
         )}

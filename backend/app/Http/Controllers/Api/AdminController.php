@@ -105,6 +105,70 @@ class AdminController extends Controller
     }
 
     /**
+     * Unified system settings endpoint to reduce HTTP overhead on client boot.
+     */
+    public function getAllSettings(): JsonResponse
+    {
+        $maintenance = [
+            'enabled' => false,
+            'message' => 'Platform is operating normally.',
+            'updatedAt' => null,
+        ];
+        $mPath = storage_path('app/maintenance.json');
+        if (file_exists($mPath)) {
+            $mData = json_decode(file_get_contents($mPath), true);
+            if (is_array($mData)) {
+                $maintenance = [
+                    'enabled' => !empty($mData['enabled']),
+                    'message' => $mData['message'] ?? 'Platform is currently undergoing scheduled maintenance. Please check back shortly.',
+                    'updatedAt' => $mData['updatedAt'] ?? null,
+                ];
+            }
+        }
+
+        $moderation = [
+            'profanityFilter' => true,
+            'aiSpotVerification' => true,
+            'imageGuardian' => true,
+            'updatedAt' => null,
+        ];
+        $modPath = storage_path('app/moderation_settings.json');
+        if (file_exists($modPath)) {
+            $modData = json_decode(file_get_contents($modPath), true);
+            if (is_array($modData)) {
+                $moderation = [
+                    'profanityFilter' => isset($modData['profanityFilter']) ? (bool) $modData['profanityFilter'] : true,
+                    'aiSpotVerification' => isset($modData['aiSpotVerification']) ? (bool) $modData['aiSpotVerification'] : true,
+                    'imageGuardian' => isset($modData['imageGuardian']) ? (bool) $modData['imageGuardian'] : true,
+                    'updatedAt' => $modData['updatedAt'] ?? null,
+                ];
+            }
+        }
+
+        $notice = [
+            'id' => 'cibf-welcome-2026',
+            'message' => 'Welcome to Colombo International Book Fair 2026 at BMICH! Spot books, enjoy 20% Sampath cardholder discounts, and locate rare titles across all halls.',
+            'type' => 'info',
+            'active' => true,
+            'dismissible' => true,
+            'updatedAt' => '2026-09-24T00:00:00.000Z',
+        ];
+        $nPath = storage_path('app/notice_banner.json');
+        if (file_exists($nPath)) {
+            $nData = json_decode(file_get_contents($nPath), true);
+            if (is_array($nData)) {
+                $notice = $nData;
+            }
+        }
+
+        return response()->json([
+            'maintenance' => $maintenance,
+            'moderation' => $moderation,
+            'notice' => $notice,
+        ]);
+    }
+
+    /**
      * Get current maintenance mode status.
      */
     public function getMaintenanceStatus(): JsonResponse
