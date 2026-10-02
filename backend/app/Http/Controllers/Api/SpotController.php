@@ -63,17 +63,6 @@ class SpotController extends Controller
             return response(null, 304)->header('ETag', $etag);
         }
 
-        // Result count limit: default to 60 to prevent memory exhaustion and bandwidth bloat
-        $limit = $request->query('limit');
-        if ($limit !== null) {
-            $limitVal = (int) $limit;
-            if ($limitVal > 0) {
-                $query->limit(min(150, $limitVal));
-            }
-        } else {
-            $query->limit(60);
-        }
-
         $spots = $query->orderBy('is_pinned', 'desc')
             ->orderBy('timestamp', 'desc')
             ->get();
